@@ -4,7 +4,7 @@ from simulators.dht import run_dht_simulator
 import threading
 import time
 
-def dht_callback(humidity, temperature, code):
+def dht_callback(humidity, temperature, code=None):
     t = time.localtime()
     print("="*20)
     print(f"Timestamp: {time.strftime('%H:%M:%S', t)}")
