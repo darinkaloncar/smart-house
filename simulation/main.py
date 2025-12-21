@@ -27,6 +27,7 @@ Commands:
 
   buzzer on
   buzzer off
+  buzzer beep
 
   status
   exit
@@ -86,6 +87,8 @@ if __name__ == "__main__":
                     door_buzzer.on()
                 elif parts[1] == "off":
                     door_buzzer.off()
+                elif parts[1] == "beep":
+                    door_buzzer.beep(2000)
                 else:
                     print("Wrong input")
 
