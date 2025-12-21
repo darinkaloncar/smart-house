@@ -1,6 +1,9 @@
 {
-  "DHT1": {
-    "simulated": true,
-    "pin": 17
-  }
+  "DS1":   { "simulated": true,  "pin": 5,  "pull": "PUD_UP" },
+  "DPIR1": { "simulated": true,  "pin": 6 },
+  "DUS1":  { "simulated": true },
+  "DMS":   { "simulated": true,  "pins": [12, 16, 20, 21], "pull": "PUD_UP" },
+
+  "DL":    { "simulated": true,  "pin": 17, "active_high": true },
+  "DB":    { "simulated": true,  "pin": 27, "active_high": true }
 }
