@@ -1,14 +1,15 @@
 import threading, time
 
-def dms_callback(is_closed, code="DMS"):
+def dms_callback(index, value, code="DMS"):
     ts = time.strftime("%H:%M:%S", time.localtime())
-    state = "CLOSED" if is_closed else "OPEN"
-    print(f"[{ts}] {code}: {state}")
+    state = "PRESSED" if value else "RELEASED"
+    print(f"[{ts}] {code}[{index}]: {state}")
 
 def run_dms(settings, threads, stop_event):
     if settings.get("simulated", True):
         from simulators.dms import run_dms_simulator
-        args = (1.0, dms_callback, stop_event)
+        keys = settings.get("keys", 3)
+        args = (1.0, dms_callback, stop_event, keys)
     else:
         pass
 
