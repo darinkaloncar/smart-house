@@ -1,15 +1,16 @@
 import threading
 import time
+from infrastructure.publisher import start_publisher_thread
 
 from settings import load_settings
 
-from components.ds1 import run_ds1
-from components.dpir1 import run_dpir1
-from components.dus1 import run_dus1
-from components.dms import run_dms
+from simulation.components.ds1 import run_ds1
+from simulation.components.dpir1 import run_dpir1
+from simulation.components.dus1 import run_dus1
+from simulation.components.dms import run_dms
 
-from components.dl import DoorLight
-from components.db import DoorBuzzer
+from simulation.components.dl import DoorLight
+from simulation.components.db import DoorBuzzer
 
 try:
     import RPi.GPIO as GPIO
@@ -40,6 +41,8 @@ if __name__ == "__main__":
     settings = load_settings()
     threads = []
     stop_event = threading.Event()
+    start_publisher_thread()
+
 
     run_ds1(settings["DS1"], threads, stop_event)
     run_dpir1(settings["DPIR1"], threads, stop_event)
