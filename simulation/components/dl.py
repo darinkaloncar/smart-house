@@ -2,7 +2,7 @@ import json
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 class DoorLight:
-    def init(self, settings):
+    def __init__(self, settings):
         self.settings = settings
         self.simulated = settings.get("simulated", True)
         self._state = False
