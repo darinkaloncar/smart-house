@@ -1,9 +1,47 @@
 {
-  "DS1": { "simulated": true, "pin": 5, "pull": "PUD_UP" },
-  "DPIR1": { "simulated": true, "pin": 6 },
-  "DUS1": { "simulated": true },
-  "DMS": { "simulated": true, "keys": 3 },
+  "device": {
+    "runs_on": "PI1",
+    "name": "smart-house-pi1",
+    "location": "home",
+    "project": "smart-house"
+  },
 
-  "DL": { "simulated": true, "pin": 17, "active_high": true },
-  "DB": { "simulated": true, "pin": 27, "active_high": true }
+  "mqtt": {
+    "host": "localhost",
+    "port": 1883,
+    "base_topic": "smart-house",
+    "qos": 0,
+    "retain": false,
+
+    "batch_size": 5,
+    "flush_interval_sec": 2.0
+  },
+
+  "DS1": {
+    "simulated": true,
+    "pin": 5,
+    "pull": "PUD_UP",
+    "runs_on": "PI1",
+    "name": "DS1"
+  },
+  "DPIR1": { "simulated": true, "pin": 6, "runs_on": "PI1", "name": "DPIR1" },
+  "DUS1": { "simulated": true, "runs_on": "PI1", "name": "DUS1" },
+  "DMS": { "simulated": true, "keys": 3, "runs_on": "PI1", "name": "DMS" },
+
+  "DHT": { "simulated": true, "pin": 4, "runs_on": "PI1", "name": "DHT1" },
+
+  "DL": {
+    "simulated": true,
+    "pin": 17,
+    "active_high": true,
+    "runs_on": "PI1",
+    "name": "DL"
+  },
+  "DB": {
+    "simulated": true,
+    "pin": 27,
+    "active_high": true,
+    "runs_on": "PI1",
+    "name": "DB"
+  }
 }
