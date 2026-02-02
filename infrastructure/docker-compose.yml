@@ -1,0 +1,56 @@
+version: "3.7"
+services:
+  # mqtt5 eclipse-mosquitto
+  mqtt5:
+    image: eclipse-mosquitto
+    container_name: mqtt5
+    ports:
+      - "1883:1883" #default mqtt port
+      - "9001:9001" #default mqtt port for websockets
+    volumes:
+      - ./broker-config:/mosquitto/config:rw
+      - ./broker-data:/mosquitto/data:rw
+      - ./broker-log:/mosquitto/log:rw
+    networks:
+      - iot-network
+
+  # InfluxDB
+  influxdb:
+    image: influxdb
+    container_name: iot-influxdb
+    ports:
+      - "8086:8086" # InfluxDB API port
+    environment:
+      - INFLUXDB_DB=${INFLUXDB_DB}
+      - INFLUXDB_ADMIN_USER=${INFLUXDB_ADMIN_USER}
+      - INFLUXDB_ADMIN_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
+    volumes:
+      - ./influxdb/data:/var/lib/influxdb:rw
+    networks:
+      - iot-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana:/var/lib/grafana
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    networks:
+      - iot-network
+
+# volumes for mapping data,config and log
+volumes:
+  config:
+  data:
+  log:
+  influxdb:
+  grafana:
+
+networks:
+  iot-network:
+    name: iot-network
