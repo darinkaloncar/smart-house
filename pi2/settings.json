@@ -1,0 +1,25 @@
+{
+  "device": {
+    "runs_on": "PI2",
+    "name": "smart-house-pi2",
+    "location": "home",
+    "project": "smart-house"
+  },
+
+  "mqtt": {
+    "host": "localhost",
+    "port": 1883,
+    "base_topic": "smart-house",
+    "qos": 0,
+    "retain": false,
+
+    "batch_size": 5,
+    "flush_interval_sec": 2.0
+  },
+  "GSG": {
+    "simulated": false,
+    "period_s": 1.1,
+    "runs_on": "PI2",
+    "name": "GSG"
+  }
+}
