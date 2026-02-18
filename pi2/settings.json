@@ -17,9 +17,25 @@
     "flush_interval_sec": 2.0
   },
   "GSG": {
-    "simulated": false,
-    "period_s": 1.1,
+    "simulated": true,
+    "period_s": 1.0,
     "runs_on": "PI2",
     "name": "GSG"
+  },
+  "SD4": {
+    "simulated": true,
+    "period_s": 1.0,
+
+    "runs_on": "PI2",
+    "name": "SD4",
+
+    "start_seconds": 300,
+
+    "segments": [11, 4, 23, 8, 7, 10, 18, 25],
+    "digits": [22, 27, 17, 24],
+
+    "refresh_s": 0.001,
+    "blink_dot": true,
+    "dot_digit": 1
   }
 }

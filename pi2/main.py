@@ -4,6 +4,7 @@ from infrastructure.publisher import start_publisher_thread
 from pi2.settings import load_settings
 
 from pi2.components.gsg import run_gsg
+from pi2.components.sd4 import run_sd4
 
 try:
     import RPi.GPIO as GPIO
@@ -30,6 +31,7 @@ if __name__ == "__main__":
 
     start_publisher_thread()
     run_gsg(settings["GSG"], threads, stop_event)
+    run_sd4(settings["SD4"], threads, stop_event)
 
     print_help()
 
@@ -47,6 +49,8 @@ if __name__ == "__main__":
             elif parts[0] == "status":
                 gsg = settings["GSG"]
                 print(f"GSG running | simulated={gsg.get('simulated', True)} | period_s={gsg.get('period_s', 2.0)}")
+                sd4 = settings["SD4"]
+                print(f"SD4 running | simulated={sd4.get('simulated', True)} | start_seconds={sd4.get('start_seconds', 300)}")
 
             else:
                 print("Wrong input")
