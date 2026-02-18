@@ -3,6 +3,7 @@ import time
 import threading
 
 from simulation.simulators.dpir1 import run_pir_simulator
+from simulation.sensors.dpir import run_pir_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 
@@ -30,10 +31,15 @@ def pir_callback(value, settings, verbose=False):
 
 
 def run_dpir1(settings, threads, stop_event):
-    th = threading.Thread(
-        target=run_pir_simulator,
-        args=(2, lambda v: pir_callback(v, settings), stop_event),
-        daemon=True
-    )
+    pin = int(settings.get("pin", 4))
+    simulated = settings.get("simulated", True)
+    target = run_pir_simulator if simulated else run_pir_real
+
+    if simulated:
+        args = (2, lambda v: pir_callback(v, settings), stop_event)
+    else:
+        args = (pin, lambda v: pir_callback(v, settings), stop_event)
+
+    th = threading.Thread(target=target, args=args, daemon=True)
     th.start()
     threads.append(th)
