@@ -8,7 +8,7 @@ class DoorLight:
         self._state = False
 
         if not self.simulated:
-            from sensors.dl import RealLED
+            from simulation.sensors.dl import RealLED
             self.impl = RealLED(settings)
         else:
             from simulation.simulators.dl import SimulationLED
