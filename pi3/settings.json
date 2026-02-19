@@ -38,5 +38,17 @@
     "runs_on": "PI3",
     "name": "IR",
     "pin": 17
+  },
+  "LCD": {
+    "simulated": true,
+    "runs_on": "PI3",
+    "name": "LCD",
+    "pcf8574_addr": 39,
+    "pcf8574a_addr": 63,
+    "switch_s": 3.0,
+    "refresh_s": 1.0,
+    "dht1": { "temp": 24, "hum": 45 },
+    "dht2": { "temp": 26, "hum": 40 },
+    "dht3": { "temp": 25, "hum": 50 }
   }
 }

@@ -4,6 +4,8 @@ from pi3.settings import load_settings
 
 from pi3.components.brgb import run_brgb
 from pi3.components.ir import run_ir
+from pi3.components.lcd import run_lcd
+
 try:
     import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BCM)
@@ -30,7 +32,8 @@ if __name__ == "__main__":
 
     run_brgb(settings["BRGB"], threads, stop_event)
     run_ir(settings["IR"], threads, stop_event)
-
+    run_lcd(settings["LCD"], threads, stop_event)
+    
     print_help()
 
     try:
