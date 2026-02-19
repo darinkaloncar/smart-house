@@ -1,0 +1,36 @@
+{
+  "device": {
+    "runs_on": "PI3",
+    "name": "smart-house-pi3",
+    "location": "home",
+    "project": "smart-house"
+  },
+
+  "mqtt": {
+    "host": "localhost",
+    "port": 1883,
+    "base_topic": "smart-house",
+    "qos": 0,
+    "retain": false,
+
+    "batch_size": 5,
+    "flush_interval_sec": 2.0
+  },
+  "BRGB": {
+    "simulated": true,
+    "period_s": 1.0,
+    "runs_on": "PI3",
+    "name": "BRGB",
+    "pins": [12, 13, 19],
+    "sequence": [
+      "off",
+      "white",
+      "red",
+      "green",
+      "blue",
+      "yellow",
+      "purple",
+      "lightBlue"
+    ]
+  }
+}
