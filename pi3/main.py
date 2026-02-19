@@ -3,7 +3,7 @@ from infrastructure.publisher import start_publisher_thread
 from pi3.settings import load_settings
 
 from pi3.components.brgb import run_brgb
-
+from pi3.components.ir import run_ir
 try:
     import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BCM)
@@ -28,8 +28,8 @@ if __name__ == "__main__":
 
     start_publisher_thread()
 
-    # Only RGB for now
     run_brgb(settings["BRGB"], threads, stop_event)
+    run_ir(settings["IR"], threads, stop_event)
 
     print_help()
 
