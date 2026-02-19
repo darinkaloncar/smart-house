@@ -1,7 +1,7 @@
 import json
 import threading
 from pi2.simulators.gsg import run_gsg_simulator
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 from pi2.sensors.gsg import run_gsg_loop
 
 
@@ -20,14 +20,13 @@ def _append_axis_payloads(prefix, values, settings):
 
 def gsg_callback(accel, gyro, settings):
 
-    global publish_counter, publish_limit
+    global publish_limit
 
     with counter_lock:
         _append_axis_payloads("Accelerometer", accel, settings)
         _append_axis_payloads("Gyroscope", gyro, settings)
 
-        publish_counter += 1
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

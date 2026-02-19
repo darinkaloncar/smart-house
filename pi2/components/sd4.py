@@ -1,11 +1,11 @@
 import json
 import threading
 
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 from pi2.simulators.sd4 import run_sd4_simulator
 
 def sd4_callback(text4, settings):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "SD4",
@@ -17,8 +17,7 @@ def sd4_callback(text4, settings):
 
     with counter_lock:
         batch.append(("SD4", json.dumps(payload), 0, True))
-        publish_counter += 1
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

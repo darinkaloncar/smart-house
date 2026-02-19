@@ -1,12 +1,12 @@
 import json
 import threading
 
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 from pi3.simulators.brgb import run_brgb_simulator
 
 
 def brgb_callback(color, settings):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "BRGB",
@@ -18,9 +18,9 @@ def brgb_callback(color, settings):
 
     with counter_lock:
         batch.append(("BRGB", json.dumps(payload), 0, True))
-        publish_counter += 1
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
+
 
 
 def run_brgb(settings, threads, stop_event):
@@ -33,7 +33,6 @@ def run_brgb(settings, threads, stop_event):
             daemon=True
         )
     else:
-        # lazy import so Windows doesn't crash
         from pi3.sensors.brgb import run_brgb_loop
         th = threading.Thread(
             target=run_brgb_loop,
