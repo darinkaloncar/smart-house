@@ -21,7 +21,7 @@ def us_callback(distance, settings, verbose=False):
         batch.append(("Distance", json.dumps(payload), 0, True))
         publish_counter += 1
 
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

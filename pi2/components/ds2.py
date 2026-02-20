@@ -3,7 +3,7 @@ import threading
 
 from simulators.ds import run_button_simulator
 from sensors.button import run_button_real
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 
 def ds_callback(value, settings, verbose=False):
@@ -19,9 +19,8 @@ def ds_callback(value, settings, verbose=False):
 
     with counter_lock:
         batch.append(("Button", json.dumps(payload), 0, True))
-        publish_counter += 1
 
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

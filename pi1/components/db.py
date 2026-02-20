@@ -8,10 +8,10 @@ class DoorBuzzer:
         self._state = False
 
         if not self.simulated:
-            from simulation.sensors.db import RealBuzzer
+            from sensors.db import RealBuzzer
             self.impl = RealBuzzer(settings)
         else:
-            from simulation.simulators.db import SimulationBuzzer
+            from simulators.db import SimulationBuzzer
             self.impl = SimulationBuzzer(settings)
 
     def _publish_state(self):

@@ -8,10 +8,10 @@ class DoorLight:
         self._state = False
 
         if not self.simulated:
-            from simulation.sensors.dl import RealLED
+            from sensors.dl import RealLED
             self.impl = RealLED(settings)
         else:
-            from simulation.simulators.dl import SimulationLED
+            from simulators.dl import SimulationLED
             self.impl = SimulationLED(settings)
 
     def _publish_state(self):

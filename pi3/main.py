@@ -1,5 +1,5 @@
 import threading
-from infrastructure.publisher import start_publisher_thread
+from publisher import start_publisher_thread
 from settings.settings import load_settings
 
 from components.brgb import run_brgb
@@ -7,7 +7,7 @@ from components.ir import run_ir
 from components.lcd import run_lcd
 
 try:
-    import RPi.GPIO as GPIO
+    import RPi.GPIO as GPIO # type: ignore
     GPIO.setmode(GPIO.BCM)
 except:
     pass

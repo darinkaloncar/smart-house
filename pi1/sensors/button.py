@@ -1,7 +1,7 @@
 import time
 
 try:
-    import RPi.GPIO as GPIO  
+    import RPi.GPIO as GPIO  # type: ignore
 except Exception:
     GPIO = None
 

@@ -1,5 +1,5 @@
 import threading
-from infrastructure.publisher import start_publisher_thread
+from publisher import start_publisher_thread
 
 from settings.settings import load_settings
 
