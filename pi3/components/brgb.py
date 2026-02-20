@@ -1,8 +1,8 @@
 import json
 import threading
 
-from pi3.globals import batch, publish_limit, counter_lock, publish_event
-from pi3.simulators.brgb import run_brgb_simulator
+from globals import batch, publish_limit, counter_lock, publish_event
+from simulators.brgb import run_brgb_simulator
 
 
 def brgb_callback(color, settings):
@@ -33,7 +33,7 @@ def run_brgb(settings, threads, stop_event):
             daemon=True
         )
     else:
-        from pi3.sensors.brgb import run_brgb_loop
+        from sensors.brgb import run_brgb_loop
         th = threading.Thread(
             target=run_brgb_loop,
             args=(settings, brgb_callback, stop_event),

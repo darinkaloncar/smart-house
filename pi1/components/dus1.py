@@ -3,11 +3,11 @@ import threading
 
 from simulators.dus1 import run_ultrasonic_simulator
 from sensors.dus import run_ultrasonic_real
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 
 def us_callback(distance, settings, verbose=False):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "Distance",
@@ -19,9 +19,8 @@ def us_callback(distance, settings, verbose=False):
 
     with counter_lock:
         batch.append(("Distance", json.dumps(payload), 0, True))
-        publish_counter += 1
 
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

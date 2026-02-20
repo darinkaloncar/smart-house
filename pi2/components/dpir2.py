@@ -8,7 +8,7 @@ from globals import batch, publish_limit, counter_lock, publish_event
 
 
 def pir_callback(value, settings, verbose=False):
-    global publish_counter, publish_limit
+    global publish_limit
 
     if verbose:
         ts = time.strftime("%H:%M:%S", time.localtime())

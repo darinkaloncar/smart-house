@@ -4,11 +4,11 @@ import threading
 
 from simulators.dpir import run_pir_simulator
 from sensors.dpir import run_pir_real
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 
 def pir_callback(value, settings, verbose=False):
-    global publish_counter, publish_limit
+    global publish_limit
 
     if verbose:
         ts = time.strftime("%H:%M:%S", time.localtime())
@@ -24,9 +24,8 @@ def pir_callback(value, settings, verbose=False):
 
     with counter_lock:
         batch.append(("Motion", json.dumps(payload), 0, True))
-        publish_counter += 1
 
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 

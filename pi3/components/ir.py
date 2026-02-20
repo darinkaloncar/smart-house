@@ -1,12 +1,12 @@
 import json
 import threading
 
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 from simulators.ir import run_ir_simulator
 
 
 def ir_callback(button_name, settings):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "IR",
@@ -18,8 +18,7 @@ def ir_callback(button_name, settings):
 
     with counter_lock:
         batch.append(("IR", json.dumps(payload), 0, True))
-        publish_counter += 1
-        if publish_counter >= publish_limit:
+        if len(batch) >= publish_limit:
             publish_event.set()
 
 
@@ -33,7 +32,7 @@ def run_ir(settings, threads, stop_event):
             daemon=True
         )
     else:
-        from pi3.sensors.ir import run_ir_loop
+        from sensors.ir import run_ir_loop
         th = threading.Thread(
             target=run_ir_loop,
             args=(settings, ir_callback, stop_event),

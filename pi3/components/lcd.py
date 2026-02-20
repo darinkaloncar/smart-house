@@ -1,12 +1,12 @@
 import json
 import threading
 
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
-from pi3.simulators.lcd import run_lcd_simulator
+from globals import batch, publish_limit, counter_lock, publish_event
+from simulators.lcd import run_lcd_simulator
 
 
 def lcd_callback(line1, line2, settings):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "LCD",
@@ -35,7 +35,7 @@ def run_lcd(settings, threads, stop_event):
             daemon=True
         )
     else:
-        from pi3.sensors.lcd import run_lcd_loop
+        from sensors.lcd import run_lcd_loop
         th = threading.Thread(
             target=run_lcd_loop,
             args=(settings, lcd_callback, stop_event),

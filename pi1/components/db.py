@@ -1,5 +1,5 @@
 import json
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 class DoorBuzzer:
     def __init__(self, settings):
@@ -15,7 +15,7 @@ class DoorBuzzer:
             self.impl = SimulationBuzzer(settings)
 
     def _publish_state(self):
-        global publish_counter, publish_limit
+        global publish_limit
 
         payload = {
             "measurement": "BuzzerState",
@@ -27,8 +27,8 @@ class DoorBuzzer:
 
         with counter_lock:
             batch.append(("BuzzerState", json.dumps(payload), 0, True))
-            publish_counter += 1
-            if publish_counter >= publish_limit:
+
+            if len(batch) >= publish_limit:
                 publish_event.set()
 
     def on(self):

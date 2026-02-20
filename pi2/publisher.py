@@ -3,13 +3,13 @@ import threading
 import time
 from paho.mqtt import publish
 
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 HOSTNAME = "localhost"
 PORT = 1883
 
 def publisher_task():
-    global publish_counter, publish_limit
+    global publish_limit
 
     while True:
         publish_event.wait()
@@ -17,7 +17,6 @@ def publisher_task():
         with counter_lock:
             local_copy = batch.copy()
             batch.clear()
-            publish_counter = 0
 
         if local_copy:
             publish.multiple(local_copy, hostname=HOSTNAME, port=PORT)

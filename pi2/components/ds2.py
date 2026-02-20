@@ -7,7 +7,7 @@ from globals import batch, publish_limit, counter_lock, publish_event
 
 
 def ds_callback(value, settings, verbose=False):
-    global publish_counter, publish_limit
+    global publish_limit
 
     payload = {
         "measurement": "Button",
