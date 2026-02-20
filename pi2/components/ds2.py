@@ -1,8 +1,8 @@
 import json
 import threading
 
-from pi2.simulators.ds import run_button_simulator
-from pi2.sensors.button import run_button_real
+from simulators.ds import run_button_simulator
+from sensors.button import run_button_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 
@@ -25,7 +25,7 @@ def ds_callback(value, settings, verbose=False):
             publish_event.set()
 
 
-def run_ds1(settings, threads, stop_event):
+def run_ds2(settings, threads, stop_event):
     simulated = settings.get("simulated", True)
 
     if simulated:

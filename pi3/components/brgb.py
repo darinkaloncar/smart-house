@@ -1,7 +1,7 @@
 import json
 import threading
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from pi3.globals import batch, publish_limit, counter_lock, publish_event
 from pi3.simulators.brgb import run_brgb_simulator
 
 

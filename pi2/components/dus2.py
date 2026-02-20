@@ -1,9 +1,8 @@
 import json
-import time
 import threading
 
-from simulation.simulators.dus1 import run_ultrasonic_simulator
-from simulation.sensors.dus import run_ultrasonic_real
+from simulators.dus import run_ultrasonic_simulator
+from sensors.dus import run_ultrasonic_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 
@@ -26,7 +25,7 @@ def us_callback(distance, settings, verbose=False):
             publish_event.set()
 
 
-def run_dus1(settings, threads, stop_event):
+def run_dus2(settings, threads, stop_event):
     simulated = settings.get("simulated", True)
 
     if simulated:

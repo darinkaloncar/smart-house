@@ -1,10 +1,10 @@
 import threading
 from infrastructure.publisher import start_publisher_thread
-from pi3.settings.settings import load_settings
+from settings.settings import load_settings
 
-from pi3.components.brgb import run_brgb
-from pi3.components.ir import run_ir
-from pi3.components.lcd import run_lcd
+from components.brgb import run_brgb
+from components.ir import run_ir
+from components.lcd import run_lcd
 
 try:
     import RPi.GPIO as GPIO

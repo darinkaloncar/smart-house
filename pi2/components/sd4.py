@@ -2,7 +2,7 @@ import json
 import threading
 
 from globals import batch, publish_limit, counter_lock, publish_event
-from pi2.simulators.sd4 import run_sd4_simulator
+from simulators.sd4 import run_sd4_simulator
 
 def sd4_callback(text4, settings):
     global publish_limit

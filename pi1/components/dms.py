@@ -1,9 +1,8 @@
 import json
-import time
 import threading
 
-from simulation.simulators.dms import run_dms_simulator
-from simulation.sensors.dms import run_dms_real
+from simulators.dms import run_dms_simulator
+from sensors.dms import run_dms_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 

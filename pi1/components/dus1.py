@@ -1,9 +1,8 @@
 import json
-import time
 import threading
 
-from simulation.simulators.dus1 import run_ultrasonic_simulator
-from simulation.sensors.dus import run_ultrasonic_real
+from simulators.dus1 import run_ultrasonic_simulator
+from sensors.dus import run_ultrasonic_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 

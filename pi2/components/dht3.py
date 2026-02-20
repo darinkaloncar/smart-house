@@ -1,5 +1,3 @@
-
-
 from simulators.dht import run_dht_simulator
 import threading
 import time

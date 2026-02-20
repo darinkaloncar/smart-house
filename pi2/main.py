@@ -1,10 +1,9 @@
 import threading
-import time
 from infrastructure.publisher import start_publisher_thread
-from pi2.settings.settings import load_settings
+from settings.settings import load_settings
 
-from pi2.components.gsg import run_gsg
-from pi2.components.sd4 import run_sd4
+from components.gsg import run_gsg
+from components.sd4 import run_sd4
 
 try:
     import RPi.GPIO as GPIO

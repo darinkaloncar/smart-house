@@ -1,8 +1,8 @@
 import json
 import threading
-from pi2.simulators.gsg import run_gsg_simulator
+from simulators.gsg import run_gsg_simulator
 from globals import batch, publish_limit, counter_lock, publish_event
-from pi2.sensors.gsg import run_gsg_loop
+from sensors.gsg import run_gsg_loop
 
 
 def _append_axis_payloads(prefix, values, settings):

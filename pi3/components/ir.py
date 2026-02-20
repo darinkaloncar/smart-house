@@ -2,7 +2,7 @@ import json
 import threading
 
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
-from pi3.simulators.ir import run_ir_simulator
+from simulators.ir import run_ir_simulator
 
 
 def ir_callback(button_name, settings):

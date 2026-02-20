@@ -1,15 +1,15 @@
 import threading
 from infrastructure.publisher import start_publisher_thread
 
-from pi1.settings.settings import load_settings
+from settings.settings import load_settings
 
-from pi1.components.ds1 import run_ds1
-from pi1.components.dpir1 import run_dpir1
-from pi1.components.dus1 import run_dus1
-from pi1.components.dms import run_dms
+from components.ds1 import run_ds1
+from components.dpir1 import run_dpir1
+from components.dus1 import run_dus1
+from components.dms import run_dms
 
-from pi1.components.dl import DoorLight
-from pi1.components.db import DoorBuzzer
+from components.dl import DoorLight
+from components.db import DoorBuzzer
 
 try:
     import RPi.GPIO as GPIO

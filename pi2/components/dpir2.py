@@ -2,8 +2,8 @@ import json
 import time
 import threading
 
-from simulation.simulators.dpir1 import run_pir_simulator
-from simulation.sensors.dpir import run_pir_real
+from simulators.dpir import run_pir_simulator
+from sensors.dpir import run_pir_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 

@@ -1,8 +1,8 @@
 import json
 import threading
 
-from pi2.simulators.ds import run_button_simulator
-from pi2.sensors.button import run_button_real
+from simulators.ds import run_button_simulator
+from sensors.button import run_button_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 
