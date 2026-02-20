@@ -16,8 +16,9 @@ def ir_callback(button_name, settings):
         "value": str(button_name),
     }
 
+    topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append(("IR", json.dumps(payload), 0, True))
+        batch.append((topic, json.dumps(payload), 0, True))
         if len(batch) >= publish_limit:
             publish_event.set()
 

@@ -24,9 +24,9 @@ class DoorLight:
             "name": self.settings["name"],
             "value": int(self._state)
         }
-
+        topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append(("LightState", json.dumps(payload), 0, True))
+            batch.append((topic, json.dumps(payload), 0, True))
 
             if len(batch) >= publish_limit:
                 publish_event.set()

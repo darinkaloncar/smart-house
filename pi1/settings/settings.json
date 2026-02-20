@@ -1,22 +1,4 @@
 {
-  "device": {
-    "runs_on": "PI1",
-    "name": "smart-house-pi1",
-    "location": "home",
-    "project": "smart-house"
-  },
-
-  "mqtt": {
-    "host": "localhost",
-    "port": 1883,
-    "base_topic": "smart-house",
-    "qos": 0,
-    "retain": false,
-
-    "batch_size": 5,
-    "flush_interval_sec": 2.0
-  },
-
    "DS1": {
     "simulated": true,
     "pin": 5,

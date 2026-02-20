@@ -23,8 +23,9 @@ def gsg_callback(accel, gyro, settings):
     global publish_limit
 
     with counter_lock:
-        _append_axis_payloads("Accelerometer", accel, settings)
-        _append_axis_payloads("Gyroscope", gyro, settings)
+        topic = f"{settings['runs_on']}/{settings['name']}"
+        _append_axis_payloads(f"{topic}/Accelerometer", accel, settings)
+        _append_axis_payloads(f"{topic}/Gyroscope", gyro, settings)
 
         if len(batch) >= publish_limit:
             publish_event.set()

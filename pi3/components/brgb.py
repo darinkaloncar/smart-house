@@ -16,8 +16,9 @@ def brgb_callback(color, settings):
         "value": str(color),
     }
 
+    topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append(("BRGB", json.dumps(payload), 0, True))
+        batch.append((topic, json.dumps(payload), 0, True))
         if len(batch) >= publish_limit:
             publish_event.set()
 

@@ -17,8 +17,9 @@ def ds_callback(value, settings, verbose=False):
         "value": int(value)
     }
 
+    topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append(("Button", json.dumps(payload), 0, True))
+        batch.append((topic, json.dumps(payload), 0, True))
 
         if len(batch) >= publish_limit:
             publish_event.set()

@@ -18,9 +18,9 @@ def lcd_callback(line1, line2, settings):
         "value": f"{line1} | {line2}" 
         
     }
-
+    topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append(("LCD", json.dumps(payload), 0, True))
+        batch.append((topic, json.dumps(payload), 0, True))
         if len(batch) >= publish_limit:
             publish_event.set()
 

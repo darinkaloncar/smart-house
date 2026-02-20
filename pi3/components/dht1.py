@@ -7,7 +7,7 @@ from sensors.dht import run_dht_loop, DHT
 from globals import batch, publish_limit, counter_lock, publish_event
 
 
-def dht_callback(humidity, temperature, settings, code=None, verbose=False):
+def dht_callback(humidity, temperature, settings):
     base = {
         "simulated": settings["simulated"],
         "runs_on": settings["runs_on"],
@@ -25,19 +25,17 @@ def dht_callback(humidity, temperature, settings, code=None, verbose=False):
         "value": float(temperature),
     }
 
+    topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append(("Humidity", json.dumps(payload_h), 0, True))
-        batch.append(("Temperature", json.dumps(payload_t), 0, True))
+        batch.append((f"{topic}/Humidity", json.dumps(payload_h), 0, True))
+        batch.append((f"{topic}/Temperature", json.dumps(payload_t), 0, True))
 
         if len(batch) >= publish_limit:
             publish_event.set()
 
-    if verbose:
-        print("[DHT]", payload_h)
-        print("[DHT]", payload_t)
 
 
-def run_dht(settings, threads, stop_event):
+def run_dht1(settings, threads, stop_event):
     simulated = settings.get("simulated", True)
     delay = float(settings.get("delay_s", 2.0))
 
