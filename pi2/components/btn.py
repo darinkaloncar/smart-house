@@ -1,12 +1,12 @@
 import json
 import threading
 
-from pi1.simulators.ds import run_button_simulator
-from pi1.sensors.button import run_button_real
+from pi2.simulators.ds import run_button_simulator
+from pi2.sensors.button import run_button_real
 from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
 
 
-def ds_callback(value, settings, verbose=False):
+def btn_callback(value, settings, verbose=False):
     global publish_counter, publish_limit
 
     payload = {
@@ -25,13 +25,13 @@ def ds_callback(value, settings, verbose=False):
             publish_event.set()
 
 
-def run_ds1(settings, threads, stop_event):
+def run_btn(settings, threads, stop_event):
     simulated = settings.get("simulated", True)
 
     if simulated:
         th = threading.Thread(
             target=run_button_simulator,
-            args=(1.5, lambda v: ds_callback(v, settings), stop_event),
+            args=(1.5, lambda v: btn_callback(v, settings), stop_event),
             daemon=True
         )
     else:
@@ -41,7 +41,7 @@ def run_ds1(settings, threads, stop_event):
 
         th = threading.Thread(
             target=run_button_real,
-            args=(pin, lambda v: ds_callback(v, settings), stop_event, pull_up, bouncetime_ms),
+            args=(pin, lambda v: btn_callback(v, settings), stop_event, pull_up, bouncetime_ms),
             daemon=True
         )
 
