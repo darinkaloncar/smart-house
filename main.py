@@ -4,13 +4,13 @@ from infrastructure.publisher import start_publisher_thread
 
 from settings import load_settings
 
-from simulation.components.ds1 import run_ds1
-from simulation.components.dpir1 import run_dpir1
-from simulation.components.dus1 import run_dus1
-from simulation.components.dms import run_dms
+from pi1.components.ds1 import run_ds1
+from pi1.components.dpir1 import run_dpir1
+from pi1.components.dus1 import run_dus1
+from pi1.components.dms import run_dms
 
-from simulation.components.dl import DoorLight
-from simulation.components.db import DoorBuzzer
+from pi1.components.dl import DoorLight
+from pi1.components.db import DoorBuzzer
 
 try:
     import RPi.GPIO as GPIO
