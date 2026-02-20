@@ -1,27 +1,37 @@
 {
-  "device": {
+  "DHT1": {
+    "simulated": true,
+    "pin": 4,
+    "delay_s": 2.0,
     "runs_on": "PI3",
-    "name": "smart-house-pi3",
-    "location": "home",
-    "project": "smart-house"
+    "name": "DHT1"
   },
 
-  "mqtt": {
-    "host": "localhost",
-    "port": 1883,
-    "base_topic": "smart-house",
-    "qos": 0,
-    "retain": false,
-
-    "batch_size": 5,
-    "flush_interval_sec": 2.0
+  "DHT2": {
+    "simulated": true,
+    "pin": 5,
+    "delay_s": 2.0,
+    "runs_on": "PI3",
+    "name": "DHT2"
   },
+
+  "DPIR3": {
+    "simulated": true,
+    "pin": 6,
+    "runs_on": "PI3",
+    "name": "DPIR3"
+  },
+
   "BRGB": {
     "simulated": true,
-    "period_s": 1.0,
     "runs_on": "PI3",
     "name": "BRGB",
+
     "pins": [12, 13, 19],
+    "active_high": true,
+
+    "period_s": 1.0,
+
     "sequence": [
       "off",
       "white",
@@ -33,22 +43,22 @@
       "lightBlue"
     ]
   },
+
   "IR": {
     "simulated": true,
     "runs_on": "PI3",
     "name": "IR",
-    "pin": 17
+    "pin": 17,
+    "debounce_ms": 150
   },
+
   "LCD": {
     "simulated": true,
     "runs_on": "PI3",
     "name": "LCD",
-    "pcf8574_addr": 39,
-    "pcf8574a_addr": 63,
-    "switch_s": 3.0,
+
+    "i2c_addr": 39,
     "refresh_s": 1.0,
-    "dht1": { "temp": 24, "hum": 45 },
-    "dht2": { "temp": 26, "hum": 40 },
-    "dht3": { "temp": 25, "hum": 50 }
+    "switch_s": 3.0
   }
 }

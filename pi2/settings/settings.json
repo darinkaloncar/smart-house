@@ -1,64 +1,66 @@
 {
-  "DHT1": {
+  "DS2": {
+    "simulated": true,
+    "pin": 5,
+    "pull_up": true,
+    "bouncetime_ms": 120,
+    "runs_on": "PI2",
+    "name": "DS2"
+  },
+
+  "DPIR2": {
+    "simulated": true,
+    "pin": 6,
+    "runs_on": "PI2",
+    "name": "DPIR2"
+  },
+
+  "DUS2": {
+    "simulated": true,
+    "trig_pin": 23,
+    "echo_pin": 24,
+    "period_s": 1.0,
+    "timeout_s": 0.02,
+    "runs_on": "PI2",
+    "name": "DUS2"
+  },
+
+  "BTN": {
+    "simulated": true,
+    "pin": 12,
+    "pull_up": true,
+    "bouncetime_ms": 120,
+    "runs_on": "PI2",
+    "name": "BTN"
+  },
+
+  "DHT3": {
     "simulated": true,
     "pin": 4,
     "delay_s": 2.0,
-    "runs_on": "PI3",
-    "name": "DHT1"
+    "runs_on": "PI2",
+    "name": "DHT3"
   },
 
-  "DHT2": {
+  "GSG": {
     "simulated": true,
-    "pin": 5,
-    "delay_s": 2.0,
-    "runs_on": "PI3",
-    "name": "DHT2"
-  },
-
-  "DPIR3": {
-    "simulated": true,
-    "pin": 6,
-    "runs_on": "PI3",
-    "name": "DPIR3"
-  },
-
-  "BRGB": {
-    "simulated": true,
-    "runs_on": "PI3",
-    "name": "BRGB",
-
-    "pins": [12, 13, 19],
-    "active_high": true,
-
     "period_s": 1.0,
-
-    "sequence": [
-      "off",
-      "white",
-      "red",
-      "green",
-      "blue",
-      "yellow",
-      "purple",
-      "lightBlue"
-    ]
+    "runs_on": "PI2",
+    "name": "GSG"
   },
 
-  "IR": {
+  "SD4": {
     "simulated": true,
-    "runs_on": "PI3",
-    "name": "IR",
-    "pin": 17,
-    "debounce_ms": 150
-  },
+    "runs_on": "PI2",
+    "name": "SD4",
 
-  "LCD": {
-    "simulated": true,
-    "runs_on": "PI3",
-    "name": "LCD",
+    "start_seconds": 300,
 
-    "i2c_addr": 39,
-    "refresh_s": 1.0,
-    "switch_s": 3.0
+    "segments": [11, 4, 23, 8, 7, 10, 18, 25],
+    "digits": [22, 27, 17, 24],
+
+    "refresh_s": 0.001,
+    "blink_dot": true,
+    "dot_digit": 1
   }
 }

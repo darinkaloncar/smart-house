@@ -1,5 +1,8 @@
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO  
+except Exception:
+    GPIO = None
 import time
 
 class DHT(object):

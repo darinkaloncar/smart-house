@@ -3,10 +3,10 @@ import threading
 
 from simulators.dms import run_dms_simulator
 from sensors.dms import run_dms_real
-from globals import batch, publish_counter, publish_limit, counter_lock, publish_event
+from globals import batch, publish_limit, counter_lock, publish_event
 
 
-def dms_callback(idx, value, settings, verbose=False):
+def dms_callback(idx, value, settings):
     global publish_limit
 
     payload = {

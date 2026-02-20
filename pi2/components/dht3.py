@@ -2,7 +2,7 @@ import json
 import threading
 
 from simulators.dht import run_dht_simulator
-from sensors.dht import run_dht_loop, DHT
+from sensors.dht import run_dht_loop
 
 from globals import batch, publish_limit, counter_lock, publish_event
 
