@@ -1,6 +1,6 @@
 import threading
 from infrastructure.publisher import start_publisher_thread
-from pi3.settings import load_settings
+from pi3.settings.settings import load_settings
 
 from pi3.components.brgb import run_brgb
 from pi3.components.ir import run_ir

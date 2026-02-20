@@ -1,7 +1,7 @@
 import json
 import os
 
-def load_settings(filePath='settings.json'):
+def load_settings(filePath='simulation/settings.json'):
     abs_path = filePath
     if not os.path.isabs(filePath):
         abs_path = os.path.join(os.getcwd(), filePath)
