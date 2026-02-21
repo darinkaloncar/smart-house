@@ -1,71 +1,84 @@
 import time
 
 try:
-    import RPi.GPIO as GPIO  # type: ignore
+    import RPi.GPIO as GPIO
 except Exception:
     GPIO = None
 
 
-def run_dms_real(
-    period_s: float,
-    callback,       
-    stop_event,
-    keys,              
-    row_pins,          
-    col_pins,        
-    debounce_s: float = 0.15
-):
- 
-    if GPIO is None:
-        raise RuntimeError("RPi.GPIO not available. Are you running on Raspberry Pi?")
+class RealDmsKeypad:
+    """
+    Šalje on_change(idx, state) za press/release.
+    """
 
-    GPIO.setwarnings(False)
-    try:
-        GPIO.setmode(GPIO.BCM)
-    except Exception:
-        pass
+    def __init__(self, settings: dict, on_change):
+        if GPIO is None:
+            raise RuntimeError("RPi.GPIO not available. Are you running on Raspberry Pi?")
 
-    for rp in row_pins:
-        GPIO.setup(rp, GPIO.OUT, initial=GPIO.LOW)
+        self.on_change = on_change
+        self.keys = settings.get("keys")
+        self.row_pins = settings.get("row_pins", [25, 8, 7, 1])
+        self.col_pins = settings.get("col_pins", [12, 16, 20, 21])
+        self.period_s = float(settings.get("period_s", 0.05))
+        self.debounce_s = float(settings.get("debounce_s", 0.15))
 
-    for cp in col_pins:
-        GPIO.setup(cp, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        self.rows = len(self.row_pins)
+        self.cols = len(self.col_pins)
 
-    if len(keys) == 4 and isinstance(keys[0], (list, tuple)):
-        def idx_of(r, c): return r * 4 + c
-    else:
-        def idx_of(r, c): return r * 4 + c
+        if self.rows <= 0 or self.cols <= 0:
+            raise ValueError("DMS row_pins/col_pins must not be empty")
 
-    last_pressed_time = {} 
-    prev_state = [[0]*4 for _ in range(4)]
-
-    try:
-        while not stop_event.is_set():
-            for r, rp in enumerate(row_pins):
-                GPIO.output(rp, GPIO.HIGH)
-                time.sleep(0.0005)  #(0.5ms)
-
-                for c, cp in enumerate(col_pins):
-                    pressed = 1 if GPIO.input(cp) else 0
-
-                    if pressed == 1 and prev_state[r][c] == 0:
-                        now = time.time()
-                        key = (r, c)
-                        last = last_pressed_time.get(key, 0.0)
-                        if (now - last) >= debounce_s:
-                            last_pressed_time[key] = now
-                            callback(idx_of(r, c), 1)
-
-                    prev_state[r][c] = pressed
-
-                GPIO.output(rp, GPIO.LOW)
-
-            time.sleep(period_s)
-    finally:
+        GPIO.setwarnings(False)
         try:
-            for rp in row_pins:
+            GPIO.setmode(GPIO.BCM)
+        except Exception:
+            pass
+
+        for rp in self.row_pins:
+            GPIO.setup(rp, GPIO.OUT, initial=GPIO.LOW)
+
+        for cp in self.col_pins:
+            GPIO.setup(cp, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+        self._prev_state = [[0] * self.cols for _ in range(self.rows)]
+        self._last_change_time = {}
+    def _idx_of(self, r: int, c: int) -> int:
+        return r * self.cols + c
+
+    def run(self, stop_event):
+        try:
+            while not stop_event.is_set():
+                for r, rp in enumerate(self.row_pins):
+                    GPIO.output(rp, GPIO.HIGH)
+                    time.sleep(0.0005)
+
+                    for c, cp in enumerate(self.col_pins):
+                        pressed = 1 if GPIO.input(cp) else 0
+                        prev = self._prev_state[r][c]
+
+                        if pressed != prev:
+                            now = time.time()
+                            key_rc = (r, c)
+                            last = self._last_change_time.get(key_rc, 0.0)
+
+                            # debounce na promenu press/release
+                            if (now - last) >= self.debounce_s:
+                                self._last_change_time[key_rc] = now
+                                self._prev_state[r][c] = pressed
+                                self.on_change(self._idx_of(r, c), pressed)
+
+                    GPIO.output(rp, GPIO.LOW)
+
+                time.sleep(self.period_s)
+
+        finally:
+            self.cleanup()
+
+    def cleanup(self):
+        try:
+            for rp in self.row_pins:
                 GPIO.cleanup(rp)
-            for cp in col_pins:
+            for cp in self.col_pins:
                 GPIO.cleanup(cp)
         except Exception:
             pass

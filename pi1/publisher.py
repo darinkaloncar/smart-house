@@ -20,7 +20,7 @@ def publisher_task():
 
         if local_copy:
             publish.multiple(local_copy, hostname=HOSTNAME, port=PORT)
-            print(f"[PUBLISHER] Published {len(local_copy)} values.")
+            #print(f"[PUBLISHER] Published {len(local_copy)} values.")
 
 
         publish_event.clear()
