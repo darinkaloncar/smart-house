@@ -15,6 +15,83 @@ try:
     GPIO.setmode(GPIO.BCM)
 except Exception:
     pass
+import json
+import paho.mqtt.client as mqtt
+
+def start_local_dpir1_to_dl_thread(dpir1, door_light, stop_event, on_seconds=10.0, cooldown_s=0.5):
+    def loop():
+        last_on_until = 0.0
+        was_motion = False
+
+        while not stop_event.is_set():
+            motion = dpir1.is_motion_detected()
+            now = time.time()
+
+            if motion and not was_motion:
+                door_light.on()
+                last_on_until = now + float(on_seconds)
+
+            # auto-off
+            if last_on_until > 0 and now >= last_on_until:
+                door_light.off()
+                last_on_until = 0.0
+
+            was_motion = motion
+            time.sleep(float(cooldown_s))
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
+
+def start_buzzer_mqtt_listener(door_buzzer, stop_event, broker="127.0.0.1", port=1883):
+    TOPIC_DB_CMD = "home/actuators/db/cmd"
+
+    def on_connect(client, userdata, flags, rc):
+        print("BUZZER MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_DB_CMD)
+
+    def on_message(client, userdata, msg):
+        try:
+            data = json.loads(msg.payload.decode())
+        except Exception as e:
+            print("BUZZER MQTT JSON ERROR:", e, msg.payload)
+            return
+
+        cmd = str(data.get("command", "")).upper()
+
+        if cmd == "ON":
+            door_buzzer.on()
+        elif cmd == "OFF":
+            door_buzzer.off()
+        elif cmd == "BEEP":
+            ms = int(data.get("ms", 2000))
+            door_buzzer.beep(ms)
+        else:
+            print("BUZZER MQTT: unknown command:", data)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+        client.connect(broker, port, 60)
+        client.loop_start()
+
+        try:
+            while not stop_event.is_set():
+                time.sleep(0.1)
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
 
 
 def print_help():
@@ -86,6 +163,11 @@ if __name__ == "__main__":
     # Actuators
     door_light = DoorLight(settings["DL"])
     door_buzzer = DoorBuzzer(settings["DB"])
+    buzzer_mqtt_thread = start_buzzer_mqtt_listener(door_buzzer, stop_event)
+    threads.append(buzzer_mqtt_thread)
+
+    local_dl_thread = start_local_dpir1_to_dl_thread(dpir1, door_light, stop_event, on_seconds=10.0)
+    threads.append(local_dl_thread)
 
     print_help()
 
@@ -126,7 +208,6 @@ if __name__ == "__main__":
                 else:
                     print("Wrong input (use: buzzer on|off|beep)")
 
-            # DS1 ručne komande
             elif parts[0] == "ds" and len(parts) >= 2:
                 if parts[1] == "press":
                     ds1.press()
@@ -149,7 +230,6 @@ if __name__ == "__main__":
                 else:
                     print("Wrong input (use: ds press|release|trigger [sec]|read)")
 
-            # PIR ručna komanda
             elif parts[0] == "pir" and len(parts) >= 2:
                 if parts[1] == "read":
                     print(f"DPIR1 motion value = {dpir1.read()}")
@@ -172,7 +252,7 @@ if __name__ == "__main__":
 
                 else:
                     print("Wrong input (use: pir trigger [sec]|read)")
-            # DMS ručna komanda
+       
             elif parts[0] == "dms" and len(parts) >= 2:
                 if parts[1] == "read":
                     print("DMS keys:", dms.keys())
@@ -197,7 +277,6 @@ if __name__ == "__main__":
                 else:
                     print("Wrong input (use: dms tap <idx> | dms tapkey <char> | dms pin <digits> | dms read)")
             
-            # DUS ručna komanda
             elif parts[0] == "dus" and len(parts) >= 2:
                 if parts[1] == "read":
                     d = dus1.read()
