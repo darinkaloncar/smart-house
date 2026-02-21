@@ -147,3 +147,23 @@ input {
   color: #6b7280;
   font-size: 12px;
 }
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tab.active {
+  border-color: #6c5ce7;
+  background: #f1eeff;
+  font-weight: 600;
+}

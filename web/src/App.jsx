@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import Pi1Tab from "./tabs/Pi1Tab";
+import Pi2Tab from "./tabs/Pi2Tab";
+import Pi3Tab from "./tabs/Pi3Tab";
+
 import {
   alarmOff,
   alarmOn,
@@ -18,6 +22,8 @@ import {
 function App() {
   const [status, setStatus] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const [activeTab, setActiveTab] = useState("overview");
 
   const [pinInput, setPinInput] = useState("");
   const [timerSecondsInput, setTimerSecondsInput] = useState(90);
@@ -58,7 +64,6 @@ function App() {
     return `rgb(${c?.r || 0}, ${c?.g || 0}, ${c?.b || 0})`;
   }, [status, rgb]);
 
-  // -------- actions ----------
   const call = async (fn) => {
     try {
       await fn();
@@ -92,13 +97,21 @@ function App() {
     );
   };
 
-  return (
-    <div className="container">
-      <h1>Smart Home Dashboard (React + Vite)</h1>
-      <div className="tiny">Backend: http://localhost:5000</div>
+  const renderTabContent = () => {
+    if (activeTab === "pi1") {
+      return <Pi1Tab status={status} sensor={sensor} boolClass={boolClass} />;
+    }
 
-      {errorMsg && <div className="error">{errorMsg}</div>}
+    if (activeTab === "pi2") {
+      return <Pi2Tab status={status} sensor={sensor} boolClass={boolClass} />;
+    }
 
+    if (activeTab === "pi3") {
+      return <Pi3Tab status={status} sensor={sensor} boolClass={boolClass} />;
+    }
+
+    // OVERVIEW
+    return (
       <div className="grid">
         {/* STATUS */}
         <section className="card">
@@ -159,7 +172,7 @@ function App() {
           <div className="row">
             <input
               type="text"
-              maxLength={4}
+              maxLength={8}
               placeholder="2110"
               value={pinInput}
               onChange={(e) => setPinInput(e.target.value)}
@@ -356,6 +369,47 @@ function App() {
           </div>
         </section>
       </div>
+    );
+  };
+
+  return (
+    <div className="container">
+      <h1>Smart Home Dashboard</h1>
+      <div className="tiny">Backend: http://localhost:5000</div>
+
+      {errorMsg && <div className="error">{errorMsg}</div>}
+
+      <div className="tabs">
+        <button
+          className={activeTab === "overview" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("overview")}
+        >
+          Overview
+        </button>
+
+        <button
+          className={activeTab === "pi1" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("pi1")}
+        >
+          PI1
+        </button>
+
+        <button
+          className={activeTab === "pi2" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("pi2")}
+        >
+          PI2
+        </button>
+
+        <button
+          className={activeTab === "pi3" ? "tab active" : "tab"}
+          onClick={() => setActiveTab("pi3")}
+        >
+          PI3
+        </button>
+      </div>
+
+      {renderTabContent()}
     </div>
   );
 }
