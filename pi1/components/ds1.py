@@ -25,7 +25,7 @@ class DoorSensor:
             from simulators.ds import SimulationDoorSensor
             self.impl = SimulationDoorSensor(settings, on_change=self._on_state_change)
         else:
-            from sensors.button import RealDoorSensor
+            from sensors.ds import RealDoorSensor
             self.impl = RealDoorSensor(settings, on_change=self._on_state_change)
 
     def _publish_state(self):
