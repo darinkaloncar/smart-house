@@ -1,42 +1,43 @@
 import time
 import random
+import queue
 
-
-def run_gsg_simulator(period_s, callback, stop_event):
+def run_gsg_simulator(cmd_q: "queue.Queue", callback, stop_event):
+    """
+    Čeka komande:
+      - ("move", intensity)  -> jedan publish event sa velikim pomerajem
+      - ("set", ax, ay, az, gx, gy, gz) -> ručno zadate vrednosti (jedan event)
+    """
     rng = random.Random()
 
-    ax, ay, az = 0.0, 0.0, 1.0
-    gx, gy, gz = 0.0, 0.0, 0.0
-
-    def clamp(x, lo, hi):
-        return lo if x < lo else hi if x > hi else x
-
     while not stop_event.is_set():
-        ax += rng.uniform(-0.02, 0.02)
-        ay += rng.uniform(-0.02, 0.02)
-        az += rng.uniform(-0.02, 0.02)
+        try:
+            msg = cmd_q.get(timeout=0.1)
+        except queue.Empty:
+            continue
 
-        gx += rng.uniform(-2.0, 2.0)
-        gy += rng.uniform(-2.0, 2.0)
-        gz += rng.uniform(-2.0, 2.0)
+        if not msg:
+            continue
 
-        # Occasionally simulate movement
-        if rng.random() < 0.10:
-            ax += rng.uniform(-0.3, 0.3)
-            ay += rng.uniform(-0.3, 0.3)
-            az += rng.uniform(-0.2, 0.2)
+        cmd = msg[0]
 
-            gx += rng.uniform(-80, 80)
-            gy += rng.uniform(-80, 80)
-            gz += rng.uniform(-120, 120)
+        if cmd == "move":
+            intensity = float(msg[1]) if len(msg) >= 2 else 1.0
 
-        ax = clamp(ax, -2.0, 2.0)
-        ay = clamp(ay, -2.0, 2.0)
-        az = clamp(az, -2.0, 2.0)
+            # "mirno" + veliki trzaj
+            ax = rng.uniform(-0.05, 0.05) + rng.uniform(-0.6, 0.6) * intensity
+            ay = rng.uniform(-0.05, 0.05) + rng.uniform(-0.6, 0.6) * intensity
+            az = 1.0 + rng.uniform(-0.10, 0.10) + rng.uniform(-0.4, 0.4) * intensity
 
-        gx = clamp(gx, -250.0, 250.0)
-        gy = clamp(gy, -250.0, 250.0)
-        gz = clamp(gz, -250.0, 250.0)
+            gx = rng.uniform(-2, 2) + rng.uniform(-120, 120) * intensity
+            gy = rng.uniform(-2, 2) + rng.uniform(-120, 120) * intensity
+            gz = rng.uniform(-2, 2) + rng.uniform(-180, 180) * intensity
 
-        callback([float(ax), float(ay), float(az)], [float(gx), float(gy), float(gz)])
-        time.sleep(float(period_s))
+            callback([ax, ay, az], [gx, gy, gz])
+
+        elif cmd == "set":
+            # ("set", ax, ay, az, gx, gy, gz)
+            if len(msg) != 7:
+                continue
+            ax, ay, az, gx, gy, gz = map(float, msg[1:])
+            callback([ax, ay, az], [gx, gy, gz])

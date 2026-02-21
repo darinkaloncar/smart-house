@@ -1,5 +1,7 @@
 import json
 import threading
+import queue
+
 from simulators.gsg import run_gsg_simulator
 from globals import batch, publish_limit, counter_lock, publish_event
 from sensors.gsg import run_gsg_loop
@@ -19,7 +21,6 @@ def _append_axis_payloads(prefix, values, settings):
 
 
 def gsg_callback(accel, gyro, settings):
-
     global publish_limit
 
     with counter_lock:
@@ -35,10 +36,13 @@ def run_gsg(settings, threads, stop_event):
     simulated = settings.get("simulated", True)
     period_s = float(settings.get("period_s", 2.0))
 
+    cmd_q = None
+
     if simulated:
+        cmd_q = queue.Queue()
         th = threading.Thread(
             target=run_gsg_simulator,
-            args=(period_s, lambda a, g: gsg_callback(a, g, settings), stop_event),
+            args=(cmd_q, lambda a, g: gsg_callback(a, g, settings), stop_event),
             daemon=True
         )
     else:
@@ -48,6 +52,6 @@ def run_gsg(settings, threads, stop_event):
             daemon=True
         )
 
-
     th.start()
     threads.append(th)
+    return cmd_q

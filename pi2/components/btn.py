@@ -1,49 +1,77 @@
 import json
 import threading
+import queue
 
-from simulators.ds import run_button_simulator
-from sensors.button import run_button_real
 from globals import batch, publish_limit, counter_lock, publish_event
+from simulators.button import run_button_simulator
 
 
-def btn_callback(value, settings, verbose=False):
-    global publish_limit
+class Button:
+    def __init__(self, settings, verbose=False):
+        self.settings = settings
+        self.verbose = verbose
+        self.simulated = settings.get("simulated", True)
 
-    payload = {
-        "measurement": "Button",
-        "simulated": settings["simulated"],
-        "runs_on": settings["runs_on"],
-        "name": settings["name"],
-        "value": int(value)
-    }
-    topic = f"{settings['runs_on']}/{settings['name']}"
+        self._state = 0
+        self._thread = None
+        self._cmd_q = queue.Queue()
 
-    with counter_lock:
-        batch.append((topic, json.dumps(payload), 0, True))
+    def _publish(self, value: int):
+        global publish_limit
 
-        if len(batch) >= publish_limit:
-            publish_event.set()
+        self._state = 1 if int(value) else 0
 
+        payload = {
+            "measurement": "Button",
+            "simulated": self.settings.get("simulated", True),
+            "runs_on": self.settings.get("runs_on", "PI2"),
+            "name": self.settings.get("name", "BTN"),
+            "value": int(self._state)
+        }
 
-def run_btn(settings, threads, stop_event):
-    simulated = settings.get("simulated", True)
+        topic = f"{payload['runs_on']}/{payload['name']}"
 
-    if simulated:
-        th = threading.Thread(
-            target=run_button_simulator,
-            args=(1.5, lambda v: btn_callback(v, settings), stop_event),
-            daemon=True
-        )
-    else:
-        pin = int(settings.get("pin"))
-        pull_up = bool(settings.get("pull_up", True))
-        bouncetime_ms = int(settings.get("bouncetime_ms", 120))
+        with counter_lock:
+            batch.append((topic, json.dumps(payload), 0, True))
+            if len(batch) >= publish_limit:
+                publish_event.set()
 
-        th = threading.Thread(
+        if self.verbose:
+            print(f"[{payload['name']}] BTN={self._state}")
+
+    def press(self):
+        if self.simulated:
+            self._cmd_q.put("press")
+        else:
+            pass
+
+    def read(self):
+        return int(self._state)
+
+    def start(self, stop_event):
+        if self._thread and self._thread.is_alive():
+            return self._thread
+
+        if self.simulated:
+            self._thread = threading.Thread(
+                target=run_button_simulator,
+                args=(self._cmd_q, self._publish, stop_event),
+                daemon=True
+            )
+            self._thread.start()
+            return self._thread
+
+        # REAL hardware
+        from sensors.button import run_button_real
+
+        pin = int(self.settings.get("pin"))
+        pull_up = bool(self.settings.get("pull_up", True))
+        bouncetime_ms = int(self.settings.get("bouncetime_ms", 120))
+
+        self._thread = threading.Thread(
             target=run_button_real,
-            args=(pin, lambda v: btn_callback(v, settings), stop_event, pull_up, bouncetime_ms),
+            args=(pin, self._publish, stop_event, pull_up, bouncetime_ms),
             daemon=True
         )
-
-    th.start()
-    threads.append(th)
+        self._thread.start()
+        return self._thread

@@ -1,50 +1,94 @@
 import json
+import time
 import threading
 
-from simulators.dus import run_ultrasonic_simulator
-from sensors.dus import run_ultrasonic_real
 from globals import batch, publish_limit, counter_lock, publish_event
 
 
-def us_callback(distance, settings, verbose=False):
-    global publish_limit
+class DoorUltrasonic:
+    """
+    - cuva poslednju izmerenu distancu
+    - publishuje MQTT za svako merenje
+    """
 
-    payload = {
-        "measurement": "Distance",
-        "simulated": settings["simulated"],
-        "runs_on": settings["runs_on"],
-        "name": settings["name"],
-        "value": float(distance)
-    }
+    def __init__(self, settings, verbose: bool = False):
+        self.settings = settings
+        self.verbose = verbose
+        self.simulated = settings.get("simulated", True)
 
-    topic = f"{settings['runs_on']}/{settings['name']}"
-    with counter_lock:
-        batch.append((topic, json.dumps(payload), 0, True))
+        self._distance_cm = None
+        self._thread = None
+        self._lock = threading.Lock()
 
-        if len(batch) >= publish_limit:
-            publish_event.set()
+        if self.simulated:
+            from simulators.dus import SimulationUltrasonic
+            self.impl = SimulationUltrasonic(settings, on_distance=self._on_distance)
+        else:
+            from sensors.dus import RealUltrasonic
+            self.impl = RealUltrasonic(settings, on_distance=self._on_distance)
 
+    def _publish_distance(self, distance_cm: float):
+        global publish_limit
 
-def run_dus2(settings, threads, stop_event):
-    simulated = settings.get("simulated", True)
+        payload = {
+            "measurement": "Distance",
+            "simulated": self.settings["simulated"],
+            "runs_on": self.settings["runs_on"],
+            "name": self.settings["name"],
+            "value": round(float(distance_cm), 2)
+        }
 
-    if simulated:
-        th = threading.Thread(
-            target=run_ultrasonic_simulator,
-            args=(1.0, lambda d: us_callback(d, settings), stop_event),
+        topic = f"{self.settings['runs_on']}/{self.settings['name']}"
+        with counter_lock:
+            batch.append((topic, json.dumps(payload), 0, True))
+            if len(batch) >= publish_limit:
+                publish_event.set()
+
+    def _on_distance(self, distance_cm: float):
+        try:
+            d = float(distance_cm)
+        except Exception:
+            return
+
+        with self._lock:
+            self._distance_cm = d
+
+        if self.verbose:
+            ts = time.strftime("%H:%M:%S", time.localtime())
+
+        self._publish_distance(d)
+
+    def start(self, stop_event):
+        if self._thread and self._thread.is_alive():
+            return self._thread
+
+        self._thread = threading.Thread(
+            target=self.impl.run,
+            args=(stop_event,),
             daemon=True
         )
-    else:
-        trig = int(settings.get("trig_pin", 23))
-        echo = int(settings.get("echo_pin", 24))
-        period = float(settings.get("period_s", 1.0))
-        timeout_s = float(settings.get("timeout_s", 0.02))
+        self._thread.start()
+        return self._thread
 
-        th = threading.Thread(
-            target=run_ultrasonic_real,
-            args=(trig, echo, period, lambda d: us_callback(d, settings), stop_event, timeout_s),
-            daemon=True
-        )
+    def read(self):
+        with self._lock:
+            return self._distance_cm
 
-    th.start()
-    threads.append(th)
+    def set_constant_distance(self, distance_cm: float):
+        if hasattr(self.impl, "set_constant_distance"):
+            self.impl.set_constant_distance(distance_cm)
+
+    def simulate_enter(self, steps: int = 20):
+        if hasattr(self.impl, "simulate_enter"):
+            self.impl.simulate_enter(steps)
+
+    def simulate_exit(self, steps: int = 20):
+        if hasattr(self.impl, "simulate_exit"):
+            self.impl.simulate_exit(steps)
+
+    def cleanup(self):
+        try:
+            if hasattr(self.impl, "cleanup"):
+                self.impl.cleanup()
+        except Exception:
+            pass
