@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
+token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot"
+bucket = "iot-db"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -507,4 +507,4 @@ if __name__ == "__main__":
     # start background timeout loop
     threading.Thread(target=background_loop, daemon=True).start()
 
-    app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)

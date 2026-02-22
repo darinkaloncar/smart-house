@@ -61,7 +61,7 @@ class RealDmsKeypad:
                             key_rc = (r, c)
                             last = self._last_change_time.get(key_rc, 0.0)
 
-                            # debounce na promenu press/release
+                            # debounce na promenu
                             if (now - last) >= self.debounce_s:
                                 self._last_change_time[key_rc] = now
                                 self._prev_state[r][c] = pressed

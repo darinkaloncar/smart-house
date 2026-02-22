@@ -8,9 +8,7 @@ from globals import batch, publish_limit, counter_lock, publish_event
 class DmsKeypad:
     """
     Event-based DMS:
-    - NE prati stanje tastera
-    - publishuje MQTT SAMO kada je taster pritisnut (press event)
-    - release događaje ignoriše
+    - publishuje MQTT kada je taster pritisnut (press event)
     - podržava ručno tap/press/release iz konzole
     """
 
