@@ -37,7 +37,7 @@
   "DHT3": {
     "simulated": true,
     "pin": 4,
-    "delay_s": 2.0,
+    "delay_s": 5.0,
     "runs_on": "PI2",
     "name": "DHT3"
   },

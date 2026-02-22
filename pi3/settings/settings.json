@@ -2,7 +2,7 @@
   "DHT1": {
     "simulated": true,
     "pin": 4,
-    "delay_s": 2.0,
+    "delay_s": 5.0,
     "runs_on": "PI3",
     "name": "DHT1"
   },
@@ -10,7 +10,7 @@
   "DHT2": {
     "simulated": true,
     "pin": 5,
-    "delay_s": 2.0,
+    "delay_s": 5.0,
     "runs_on": "PI3",
     "name": "DHT2"
   },

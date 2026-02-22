@@ -5,8 +5,10 @@ def generate_values(initial_temp = 25, initial_humidity=20):
       temperature = initial_temp
       humidity = initial_humidity
       while True:
-            temperature = temperature + random.randint(-1, 1)
-            humidity = humidity + random.randint(-1, 1)
+            if random.random() < 0.2:
+                  temperature = temperature + random.randint(-1, 1)
+            if random.random() < 0.2:
+                  humidity = humidity + random.randint(-1, 1)
             if humidity < 0:
                   humidity = 0
             if humidity > 100:
