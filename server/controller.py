@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
+token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot-db"
+bucket = "iot"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -36,7 +36,7 @@ ALARM_HOLD_S = 10.0
 GSG_COOLDOWN_S = 2.0        
 GSG_ACCEL_DELTA_THR = 0.25   
 GSG_GYRO_NORM_THR = 80.0  
-
+EMPTY_GRACE_S = 4.0 
 
 lock = threading.Lock()
 
@@ -70,20 +70,33 @@ state = {
     "dl1_until": 0.0,
 
     "alarm_on": False,
+    "alarm_reason": "",
+    "alarm_reasons": [],
     "ds": {
         "DS1": {"value": 0, "since": None, "alarm_latched": False},
         "DS2": {"value": 0, "since": None, "alarm_latched": False},
     },
+    "empty_grace_until": 0.0,
 }
 
 
 # alarm helper
+
 def _recompute_alarm(now: float):
     desired = (
         state["alarm_sources"]["ds_unlocked"]["active"]
         or state["alarm_sources"]["motion_empty"]["active"]
         or state["alarm_sources"]["gsg_move"]["active"]
     )
+
+    reasons = []
+    for k in ("ds_unlocked", "motion_empty", "gsg_move"):
+        src = state["alarm_sources"][k]
+        if src.get("active"):
+            reasons.append(src.get("reason") or k)
+
+    state["alarm_reasons"] = reasons
+    state["alarm_reason"] = "; ".join(reasons)
 
     current = bool(state.get("alarm_on", False))
     if desired == current:
@@ -157,6 +170,9 @@ def save_to_db(data):
     except Exception as e:
         print("INFLUX SAVE ERROR:", e)
 
+def is_empty_but_in_grace(now: float) -> bool:
+    return int(state.get("people_count", 0)) == 0 and now < float(state.get("empty_grace_until", 0.0))
+
 def get_last_dus_values_from_db(dus_name: str, runs_on: str, n=3, lookback_s=15):
     try:
         query_api = influxdb_client.query_api()
@@ -185,13 +201,8 @@ from(bucket: "{bucket}")
 
 
 def infer_entry_exit_from_dus(dus_name: str, runs_on: str):
-    """
-    enter = distance opada
-    exit  = distance raste
-    """
     values = get_last_dus_values_from_db(dus_name=dus_name, runs_on=runs_on, n=3, lookback_s=15)
 
-    # fallback na memoriju ako nema dovoljno u bazi
     if len(values) < 3:
         with lock:
             hist = state["dus_history"].get(dus_name, [])
@@ -199,8 +210,7 @@ def infer_entry_exit_from_dus(dus_name: str, runs_on: str):
                 values = [float(x) for _, x in hist[-3:]]
 
     if len(values) < 3:
-        print(f"{dus_name} infer: nema dovoljno podataka:", values)
-        return None
+        return (None, False)
 
     a, b, c = values[-3], values[-2], values[-1]
     eps = 2.0
@@ -208,21 +218,40 @@ def infer_entry_exit_from_dus(dus_name: str, runs_on: str):
     descending = (a - b > eps) and (b - c > eps)
     ascending  = (b - a > eps) and (c - b > eps)
 
+    exit_from_zero = False
+
     with lock:
+        before = int(state.get("people_count", 0))
+
         if descending:
-            state["people_count"] += 1
+            state["people_count"] = before + 1
             direction = "ULAZAK"
+
+            state["alarm_sources"]["motion_empty"]["active"] = False
+            state["alarm_sources"]["motion_empty"]["reason"] = ""
+
         elif ascending:
-            state["people_count"] = max(0, state["people_count"] - 1)
             direction = "IZLAZAK"
+
+            if before == 0:
+                exit_from_zero = True
+            else:
+                state["people_count"] = before - 1
+
+            state["alarm_sources"]["motion_empty"]["active"] = False
+            state["alarm_sources"]["motion_empty"]["reason"] = ""
+
+            after = int(state.get("people_count", 0))
+            if after == 0 and before > 0:
+                state["empty_grace_until"] = time.time() + EMPTY_GRACE_S
+
         else:
             direction = "NEJASNO"
 
-        count = state["people_count"]
+        after = int(state.get("people_count", 0))
 
-    print(f"[{dus_name}] {direction} -> people_count={count} (values={values})")
-    return direction
-
+    print(f"[{dus_name}] {direction} -> people_count={after} exit_from_zero={exit_from_zero}")
+    return (direction, exit_from_zero)
 
 def activate_dl1_for_10s():
     now = time.time()
@@ -246,15 +275,15 @@ def background_loop():
             for ds_name in ("DS1", "DS2"):
                 ds = state["ds"][ds_name]
 
-                # ds["value"] == 1 eq ACTIVE
-                if ds["value"] == 1 and ds["since"] is not None:
+                # 0 open
+                if ds["value"] == 0 and ds["since"] is not None:
                     if (now - ds["since"]) >= DS_UNLOCKED_SECONDS:
                         ds["alarm_latched"] = True
 
                 if ds["alarm_latched"]:
                     ds_should_be_on = True
                     if not ds_reason:
-                        ds_reason = f"{ds_name} active > {DS_UNLOCKED_SECONDS}s"
+                        ds_reason = f"{ds_name} open > {DS_UNLOCKED_SECONDS}s"
 
             state["alarm_sources"]["ds_unlocked"]["active"] = ds_should_be_on
             state["alarm_sources"]["ds_unlocked"]["reason"] = ds_reason
@@ -273,15 +302,32 @@ def background_loop():
 
         time.sleep(0.1)
 
-def _is_active_signal(v) -> bool:
+def _norm_ds01(v) -> int:
+    # 0 = open, 1 = closed
     if isinstance(v, bool):
-        return not v  # ako ti je False = aktivno
-
+        return 1 if v else 0
     if isinstance(v, (int, float)):
-        return int(v) == 0   # 0 is active (for door sensors)
+        return 1 if int(v) != 0 else 0
 
     s = str(v).strip().lower()
-    return s in ("0", "false", "open", "released")
+    if s in ("0", "false", "open", "released"):
+        return 0
+    if s in ("1", "true", "closed", "pressed"):
+        return 1
+
+    # fallback
+    try:
+        return 1 if int(float(s)) != 0 else 0
+    except Exception:
+        return 0
+    
+
+def trigger_motion_empty_alarm(pir_name: str, why: str):
+    with lock:
+        state["alarm_sources"]["motion_empty"]["active"] = True
+        state["alarm_sources"]["motion_empty"]["reason"] = f"{pir_name}: {why}"
+        _recompute_alarm(time.time())
+
 
 def handle_sensor_message(data):
     name = data.get("name")
@@ -292,6 +338,7 @@ def handle_sensor_message(data):
     now = time.time()
 
     measurement = data.get("measurement", "")
+
     if name == "GSG":
         with lock:
             state["sensors"]["GSG"] = value
@@ -299,27 +346,27 @@ def handle_sensor_message(data):
         return
 
     if name in ("DS1", "DS2"):
-        active = _is_active_signal(value)
-        v01 = 1 if active else 0
+        v01 = _norm_ds01(value)  
 
         with lock:
             ds_state = state["ds"][name]
             prev = ds_state["value"]
             ds_state["value"] = v01
-            state["sensors"][name] = v01    
+            state["sensors"][name] = v01
 
             if prev != v01:
-                if v01 == 1:
-                    ds_state["since"] = now          # start timer
+                if v01 == 0:
+                    # start timer when released 0
+                    ds_state["since"] = now
                 else:
-                    ds_state["since"] = None         # reset timer
+                    # resed when back on 1
+                    ds_state["since"] = None
                     ds_state["alarm_latched"] = False
 
-                print(f"[{name}] value={value!r} active={active} v01={v01}")
+                print(f"[{name}] value={value!r} normalized={v01}")
 
         return
 
-    # update state and history
     with lock:
         if name in ("DPIR1", "DPIR2", "DPIR3"):
             state["sensors"][name] = value
@@ -331,27 +378,81 @@ def handle_sensor_message(data):
 
                 hist = state["dus_history"].setdefault(name, [])
                 hist.append((now, d))
-                # last 20s
+
+                # keep last 20s
                 state["dus_history"][name] = [(t, x) for (t, x) in hist if now - t <= 20]
             except Exception:
                 pass
+    
 
-    # pir detecting motion
     is_motion = str(value) in ("1", "True", "true", "detected")
-    if name in ("DPIR1", "DPIR2", "DPIR3") and is_motion:
-        with lock:
-            empty = int(state.get("people_count", 0)) == 0
-            if empty:
-                state["alarm_sources"]["motion_empty"]["active"] = True
-                state["alarm_sources"]["motion_empty"]["reason"] = f"{name} motion while people_count=0"
-                _recompute_alarm(time.time())
+    if name not in ("DPIR1", "DPIR2", "DPIR3") or not is_motion:
+        return
 
-    if name == "DPIR1" and is_motion:
+    if name == "DPIR1":
         activate_dl1_for_10s()
-        infer_entry_exit_from_dus("DUS1", "PI1")
 
-    if name == "DPIR2" and is_motion:
-        infer_entry_exit_from_dus("DUS2", "PI2")
+        direction, exit_from_zero = infer_entry_exit_from_dus("DUS1", "PI1")
+        with lock:
+            pc_after = int(state.get("people_count", 0))
+            grace_until = float(state.get("empty_grace_until", 0.0))
+            in_grace = (pc_after == 0 and now < grace_until)
+            
+        if direction == "ULAZAK":
+            return
+
+        if exit_from_zero:
+            trigger_motion_empty_alarm("DPIR1", "IZLAZAK while people_count=0")
+        
+        if direction == "IZLAZAK" and pc_after == 0:
+            return
+
+        if in_grace:
+            print(f"[DPIR1] motion ignored (empty grace until {grace_until:.2f})")
+            return
+
+        if pc_after == 0:
+            trigger_motion_empty_alarm("DPIR1", f"motion while empty (dus={direction})")
+
+        return
+
+    if name == "DPIR2":
+        direction, exit_from_zero = infer_entry_exit_from_dus("DUS2", "PI2")
+
+        with lock:
+            pc_after = int(state.get("people_count", 0))
+            grace_until = float(state.get("empty_grace_until", 0.0))
+            in_grace = (pc_after == 0 and now < grace_until)
+
+        if direction == "ULAZAK":
+            return
+
+        if exit_from_zero:
+            trigger_motion_empty_alarm("DPIR2", "IZLAZAK while people_count=0")
+            return
+
+        if direction == "IZLAZAK" and pc_after == 0:
+            return
+
+        if in_grace:
+            print(f"[DPIR2] motion ignored (empty grace until {grace_until:.2f})")
+            return
+
+        if pc_after == 0:
+            trigger_motion_empty_alarm("DPIR2", f"motion while empty (dus={direction})")
+
+        return
+
+    if name == "DPIR3":
+        with lock:
+            pc = int(state.get("people_count", 0))
+            grace_until = float(state.get("empty_grace_until", 0.0))
+            in_grace = (pc == 0 and now < grace_until)
+
+        if pc == 0 and not in_grace:
+            trigger_motion_empty_alarm("DPIR3", "motion while empty")
+        return
+
 
 def handle_gsg_message(measurement: str, value):
     try:
@@ -425,6 +526,24 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("JSON ERROR:", e)
         return
+    
+    if msg.topic == TOPIC_DB_CMD:
+        cmd = str(data.get("command", "")).upper()
+
+        if cmd == "OFF":
+            print("[ALARM] Manual OFF received")
+
+            with lock:
+                for k in state["alarm_sources"].keys():
+                    state["alarm_sources"][k]["active"] = False
+                    state["alarm_sources"][k]["reason"] = ""
+
+                for ds_name in ("DS1", "DS2"):
+                    state["ds"][ds_name]["alarm_latched"] = False
+
+                state["alarm_on"] = False
+                state["alarm_reason"] = "Manual OFF"
+                state["alarm_reasons"] = ["Manual OFF"]
 
     save_to_db(data)
     handle_sensor_message(data)
@@ -447,8 +566,8 @@ def status():
             "sensors": state["sensors"],
 
             "alarm_on": state.get("alarm_on", False),
+            "reason": state["alarm_reason"],
             "ds_debug": state.get("ds", {}),
-
             "dus_history_last_5": {
                 "DUS1": state.get("dus_history", {}).get("DUS1", [])[-5:],
                 "DUS2": state.get("dus_history", {}).get("DUS2", [])[-5:],
@@ -507,4 +626,4 @@ if __name__ == "__main__":
     # start background timeout loop
     threading.Thread(target=background_loop, daemon=True).start()
 
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
