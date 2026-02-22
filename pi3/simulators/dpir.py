@@ -1,9 +1,18 @@
-import time, random
+import time
 
-def run_pir_simulator(delay, callback, stop_event):
-    state = 0
-    while not stop_event.is_set():
-        state = 1 if random.random() < 0.25 else 0
-        callback(state)
-        time.sleep(delay)
-        
+
+class SimulationPir:
+    """
+    Pasivni simulator PIR-a.
+    Događaji se okidaju ručno preko komponente (set_motion).
+    """
+
+    def __init__(self, settings: dict, on_change):
+        self.on_change = on_change
+        self.tick = float(settings.get("sim_tick", 0.2))
+
+    def run(self, stop_event):
+        # pošalji inicijalno stanje 0 samo jednom
+        self.on_change(0)
+        while not stop_event.is_set():
+            time.sleep(self.tick)
