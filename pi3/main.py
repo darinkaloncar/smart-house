@@ -24,6 +24,51 @@ try:
 except Exception:
     pass
 
+import json
+import paho.mqtt.client as mqtt
+
+
+state_lock = threading.Lock()
+pi3_state = {
+    "dht": {
+        "DHT1": {"temperature": None, "humidity": None, "updated_at": None},
+        "DHT2": {"temperature": None, "humidity": None, "updated_at": None},
+        "DHT3": {"temperature": None, "humidity": None, "updated_at": None},
+    }
+}
+
+
+def update_dht_state(data):
+    name = str(data.get("name", ""))
+    if name not in ["DHT1", "DHT2", "DHT3"]:
+        return False
+
+    dht_type = str(data.get("type", "")).lower()
+    if dht_type not in ["temperature", "humidity"]:
+        return False
+
+    try:
+        value = float(data.get("value"))
+    except Exception:
+        return False
+
+    with state_lock:
+        d = pi3_state["dht"][name]
+        d[dht_type] = value
+        d["updated_at"] = time.time()
+
+    return True
+
+def get_dht_snapshot():
+    with state_lock:
+        return {
+            k: {
+                "temperature": v["temperature"],
+                "humidity": v["humidity"],
+                "updated_at": v["updated_at"],
+            }
+            for k, v in pi3_state["dht"].items()
+        }
 
 def _run_if_present(settings, key, runner, threads, stop_event):
     if key not in settings:
@@ -38,6 +83,67 @@ def _get_settings_key(settings: dict, *keys: str):
             return k
     return None
 
+def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
+    """
+    Listens for DHT updates forwarded by controller and updates local dht PI3 cache.
+    
+    """
+    TOPIC_DHT_UPDATE = "home/actuators/dht/update"
+
+    def on_connect(client, userdata, flags, rc):
+        print("DHT UPDATE MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_DHT_UPDATE)
+
+    def on_message(client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode())
+        except Exception as e:
+            print("DHT UPDATE MQTT JSON ERROR:", e, msg.payload)
+            return
+        data = payload.get("update") if isinstance(payload, dict) and "update" in payload else payload
+        print("DHT UPDATE MQTT RECEIVED:", data)
+        if not isinstance(data, dict):
+            print("DHT UPDATE MQTT BAD PAYLOAD:", payload)
+            return
+
+        ok = update_dht_state(data)
+        if ok:
+            name = data.get("name")
+            snap = get_dht_snapshot().get(str(name), {})
+            print(
+                f"[DHT CACHE] {name}: "
+                f"T={snap.get('temperature')} "
+                f"H={snap.get('humidity')}"
+            )
+        else:
+            print("DHT UPDATE MQTT ignored payload:", data)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+
+        try:
+            client.connect(broker, port, 60)
+            client.loop_start()
+
+            while not stop_event.is_set():
+                time.sleep(0.1)
+        except Exception as e:
+            print("DHT UPDATE MQTT LOOP ERROR:", e)
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
 
 def print_help():
     print("""
@@ -70,6 +176,10 @@ if __name__ == "__main__":
 
     start_publisher_thread()
 
+    th_dht_listener = start_dht_mqtt_listener(stop_event)
+    if th_dht_listener:
+        threads.append(th_dht_listener)
+
     # --- DHT sensors (periodic) ---
     _run_if_present(settings, "DHT1", run_dht1, threads, stop_event)
     _run_if_present(settings, "DHT2", run_dht2, threads, stop_event)
@@ -101,7 +211,13 @@ if __name__ == "__main__":
         print("[WARN] Missing settings for BRGB")
 
     # --- LCD ---
-    _run_if_present(settings, "LCD", run_lcd, threads, stop_event)
+    if "LCD" in settings:
+        try:
+            run_lcd(settings["LCD"], threads, stop_event, dht_snapshot_getter=get_dht_snapshot)
+        except Exception as e:
+            print(f"[WARN] LCD failed to start: {e}")
+    else:
+        print("[WARN] Missing settings for LCD")
 
     # --- DPIR3 (class-style if available, else fallback runner) ---
     dpir3 = None
