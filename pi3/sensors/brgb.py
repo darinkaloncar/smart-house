@@ -1,50 +1,89 @@
 import time
 
+try:
+    import RPi.GPIO as GPIO
+except Exception:
+    GPIO = None
+
+
 COLOR_MAP = {
-    "off":      (0, 0, 0),
-    "white":    (1, 1, 1),
-    "red":      (1, 0, 0),
-    "green":    (0, 1, 0),
-    "blue":     (0, 0, 1),
-    "yellow":   (1, 1, 0),
-    "purple":   (1, 0, 1),
+    "off":       (0, 0, 0),
+    "white":     (1, 1, 1),
+    "red":       (1, 0, 0),
+    "green":     (0, 1, 0),
+    "blue":      (0, 0, 1),
+    "yellow":    (1, 1, 0),
+    "purple":    (1, 0, 1),
     "lightBlue": (0, 1, 1),
 }
 
-def run_brgb_loop(settings, callback, stop_event):
-    import RPi.GPIO as GPIO
 
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)
+class RealBrgbLed:
+    """
+    Event-driven real BRGB LED:
+    - čeka komande (set_color)
+    - ne vrti sequence periodično
+    """
 
-    pins = settings.get("pins", [12, 13, 19])
-    r_pin, g_pin, b_pin = int(pins[0]), int(pins[1]), int(pins[2])
+    def __init__(self, settings: dict, on_change):
+        if GPIO is None:
+            raise RuntimeError("RPi.GPIO not available. Are you running on Raspberry Pi?")
 
-    period_s = float(settings.get("period_s", 1.0))
-    sequence = settings.get("sequence", ["off", "white", "red", "green", "blue", "yellow", "purple", "lightBlue"])
-    if not sequence:
-        sequence = ["off"]
+        self.settings = settings
+        self.on_change = on_change
+        self.tick = float(settings.get("sim_tick", 0.05))
 
-    for p in (r_pin, g_pin, b_pin):
-        GPIO.setup(p, GPIO.OUT)
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BCM)
 
-    def apply_color(name: str):
+        pins = settings.get("pins", [12, 13, 19])
+        self.r_pin, self.g_pin, self.b_pin = int(pins[0]), int(pins[1]), int(pins[2])
+
+        for p in (self.r_pin, self.g_pin, self.b_pin):
+            GPIO.setup(p, GPIO.OUT)
+
+        self._current = "off"
+        self._pending = None
+
+        # inicijalno ugasi
+        self._apply_color("off")
+
+    def _apply_color(self, name: str):
         rgb = COLOR_MAP.get(name, COLOR_MAP["off"])
-        GPIO.output(r_pin, GPIO.HIGH if rgb[0] else GPIO.LOW)
-        GPIO.output(g_pin, GPIO.HIGH if rgb[1] else GPIO.LOW)
-        GPIO.output(b_pin, GPIO.HIGH if rgb[2] else GPIO.LOW)
+        GPIO.output(self.r_pin, GPIO.HIGH if rgb[0] else GPIO.LOW)
+        GPIO.output(self.g_pin, GPIO.HIGH if rgb[1] else GPIO.LOW)
+        GPIO.output(self.b_pin, GPIO.HIGH if rgb[2] else GPIO.LOW)
 
-    i = 0
-    try:
-        while not stop_event.is_set():
-            color = sequence[i % len(sequence)]
-            apply_color(color)
-            callback(color, settings)
-            i += 1
-            time.sleep(period_s)
-    finally:
+    def set_color(self, color: str):
+        self._pending = str(color)
+
+    def run(self, stop_event):
         try:
-            apply_color("off")
-        except:
+            # inicijalni state event (opciono)
+            self.on_change(self._current)
+
+            while not stop_event.is_set():
+                if self._pending is not None:
+                    color = self._pending
+                    self._pending = None
+
+                    self._apply_color(color)
+                    self._current = color
+                    self.on_change(color)
+
+                time.sleep(self.tick)
+
+        finally:
+            self.cleanup()
+
+    def cleanup(self):
+        try:
+            self._apply_color("off")
+        except Exception:
             pass
-        GPIO.cleanup()
+        try:
+            GPIO.cleanup(self.r_pin)
+            GPIO.cleanup(self.g_pin)
+            GPIO.cleanup(self.b_pin)
+        except Exception:
+            pass

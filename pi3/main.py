@@ -2,7 +2,7 @@ import threading
 from publisher import start_publisher_thread
 from settings.settings import load_settings
 
-from components.brgb import run_brgb
+from components.brgb import BrgbLed
 from components.ir import IrRemote
 from components.lcd import run_lcd
 
@@ -30,10 +30,13 @@ Commands:
   status
   exit
 
-IR (event-based, simulator):
   ir <BUTTON>             e.g. ir OK | ir LEFT | ir 1
   irseq <DIGITS>          e.g. irseq 1234
   irmany <B1,B2,...>      e.g. irmany 1,2,3,OK
+
+  brgb <COLOR>            e.g. brgb red | brgb blue | brgb off
+  brgb off
+  brgb list
 """)
 
 
@@ -60,7 +63,17 @@ if __name__ == "__main__":
     else:
         print("[WARN] Missing settings for IR")
 
-    _run_if_present(settings, "BRGB", run_brgb, threads, stop_event)
+    brgb = None
+    if "BRGB" in settings:
+        try:
+            brgb = BrgbLed(settings["BRGB"], verbose=True)
+            th_brgb = brgb.start(stop_event)
+            threads.append(th_brgb)
+        except Exception as e:
+            print(f"[WARN] BRGB failed to start: {e}")
+    else:
+        print("[WARN] Missing settings for BRGB")
+
     _run_if_present(settings, "LCD", run_lcd, threads, stop_event)
     _run_if_present(settings, "DPIR3", run_dpir3, threads, stop_event)
 
@@ -85,8 +98,11 @@ if __name__ == "__main__":
                         )
                 if ir is not None:
                     print(f"IR buttons: {ir.buttons()}")
+                if brgb is not None:
+                    print(f"BRGB colors: {brgb.colors()}")
                 continue
 
+            # -------- IR commands --------
             if cmd.lower().startswith("ir "):
                 if ir is None:
                     print("IR is not initialized.")
@@ -121,6 +137,32 @@ if __name__ == "__main__":
                 ir.press_many(buttons)
                 continue
 
+            # -------- BRGB commands --------
+            if cmd.lower() == "brgb list":
+                if brgb is None:
+                    print("BRGB is not initialized.")
+                    continue
+                print("Available BRGB colors:", ", ".join(brgb.colors()))
+                continue
+
+            if cmd.lower() == "brgb off":
+                if brgb is None:
+                    print("BRGB is not initialized.")
+                    continue
+                brgb.off()
+                continue
+
+            if cmd.lower().startswith("brgb "):
+                if brgb is None:
+                    print("BRGB is not initialized.")
+                    continue
+                color = cmd[5:].strip()
+                if not color:
+                    print("Usage: brgb <COLOR>")
+                    continue
+                brgb.set_color(color)
+                continue
+
             print("Wrong input")
 
     except KeyboardInterrupt:
@@ -134,6 +176,12 @@ if __name__ == "__main__":
         if ir is not None:
             try:
                 ir.cleanup()
+            except Exception:
+                pass
+
+        if brgb is not None:
+            try:
+                brgb.cleanup()
             except Exception:
                 pass
 
