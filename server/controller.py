@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
+token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot"
+bucket = "iot-db"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -31,6 +31,8 @@ influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 # -----------------------------
 TOPIC_DL1_CMD = "home/actuators/dl1/cmd"
 TOPIC_DB_CMD  = "home/actuators/db/cmd"
+TOPIC_DHT_UPDATE  = "home/actuators/dht/update"
+
 DS_UNLOCKED_SECONDS = 5.0
 ALARM_HOLD_S = 10.0         
 GSG_COOLDOWN_S = 2.0        
@@ -323,7 +325,25 @@ def trigger_motion_empty_alarm(pir_name: str, why: str):
         state["alarm_sources"]["motion_empty"]["reason"] = f"{pir_name}: {why}"
         _recompute_alarm(time.time())
 
+def build_dht_update_payload(data: dict):
+    name = str(data.get("name", ""))
+    if not name.startswith("DHT"):
+        return None
 
+    measurement = str(data.get("measurement", "")).lower()
+
+    if "temperature" in measurement:
+        dht_type = "temperature"
+    elif "humidity" in measurement:
+        dht_type = "humidity"
+    else:
+        return None
+
+    return {
+        "name": name,
+        "type": dht_type,      # "temperature" ili "humidity"
+        "value": data.get("value")
+    }
 def handle_sensor_message(data):
     name = data.get("name")
     if not name:
@@ -333,7 +353,12 @@ def handle_sensor_message(data):
     now = time.time()
 
     measurement = data.get("measurement", "")
-
+     # --- DHT ---
+    if str(name).startswith("DHT"):
+        dht_payload = build_dht_update_payload(data)
+        if dht_payload is not None:
+            mqtt_send(TOPIC_DHT_UPDATE, dht_payload)
+        return
     if name == "GSG":
         with lock:
             state["sensors"]["GSG"] = value
