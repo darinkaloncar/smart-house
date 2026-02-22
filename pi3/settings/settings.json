@@ -59,6 +59,6 @@
 
     "i2c_addr": 39,
     "refresh_s": 1.0,
-    "switch_s": 3.0
+    "switch_s": 5.0
   }
 }

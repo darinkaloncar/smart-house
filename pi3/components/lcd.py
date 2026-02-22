@@ -1,5 +1,6 @@
 import json
 import threading
+from time import time
 
 from globals import batch, publish_limit, counter_lock, publish_event
 from simulators.lcd import run_lcd_simulator
@@ -15,7 +16,7 @@ def lcd_callback(line1, line2, settings):
         "name": settings["name"],
         "line1": str(line1),
         "line2": str(line2),
-        "value": f"{line1} | {line2}"
+        "value": f"{line1} | {line2}",
     }
 
     topic = f"{settings['runs_on']}/{settings['name']}"

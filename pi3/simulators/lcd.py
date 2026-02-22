@@ -12,17 +12,17 @@ def run_lcd_simulator(settings, callback, stop_event, dht_snapshot_getter=None):
     idx = 0
     last_switch = time.time()
 
-    # poslednje poslato na LCD
-    last_line1 = None
-    last_line2 = None
+    first_publish = True
 
     while not stop_event.is_set():
         now = time.time()
+        rotated = False
 
         # menja aktivni DHT na svakih switch_s sekundi
         if now - last_switch >= switch_s:
             idx = (idx + 1) % len(names)
             last_switch = now
+            rotated = True
 
         dht_name = names[idx]
         temp = None
@@ -52,10 +52,9 @@ def run_lcd_simulator(settings, callback, stop_event, dht_snapshot_getter=None):
         line1 = f"{dht_name} T:{temp_text}"
         line2 = f"{dht_name} H:{hum_text}"
 
-        # salji samo kad se promeni prikaz
-        if line1 != last_line1 or line2 != last_line2:
+        # publish samo prvi put i kad se rotira na sledeci DHT
+        if first_publish or rotated:
             callback(line1, line2)
-            last_line1 = line1
-            last_line2 = line2
+            first_publish = False
 
         time.sleep(refresh_s)
