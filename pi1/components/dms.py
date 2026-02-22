@@ -7,14 +7,11 @@ from globals import batch, publish_limit, counter_lock, publish_event
 
 class DmsKeypad:
     """
-    - čuva stanje svih tastera (pressed/released)
-    - publishuje MQTT na promenu (press/release)
+    Event-based DMS:
+    - NE prati stanje tastera
+    - publishuje MQTT SAMO kada je taster pritisnut (press event)
+    - release događaje ignoriše
     - podržava ručno tap/press/release iz konzole
-
-    keys može biti:
-      - int (broj tastera)
-      - flat lista ["1","2",...]
-      - 2D lista [["1","2","3","A"], ...]
     """
 
     def __init__(self, settings, verbose: bool = False):
@@ -24,10 +21,8 @@ class DmsKeypad:
 
         self.keys_layout = settings.get("keys", 16)
         self._keys_flat = self._flatten_keys(self.keys_layout)
-        self._states = [0] * len(self._keys_flat)  # 0=release, 1=press
 
         self._thread = None
-        self._lock = threading.Lock()
 
         if self.simulated:
             from simulators.dms import SimulationDmsKeypad
@@ -44,7 +39,7 @@ class DmsKeypad:
             if len(keys) == 0:
                 return []
 
-            if isinstance(keys[0], (list, tuple)):  # 2D
+            if isinstance(keys[0], (list, tuple)):  # 2D layout
                 flat = []
                 for row in keys:
                     for item in row:
@@ -67,7 +62,7 @@ class DmsKeypad:
                 return i
         raise ValueError(f"Key '{key_label}' not found in DMS layout")
 
-    def _publish_key_state(self, idx: int, state: int):
+    def _publish_key_pressed(self, idx: int):
         global publish_limit
 
         payload = {
@@ -75,9 +70,8 @@ class DmsKeypad:
             "simulated": self.settings["simulated"],
             "runs_on": self.settings["runs_on"],
             "name": self.settings["name"],
-            "key_index": int(idx),
-            "key": self._key_label(idx),
-            "state": int(state)  # 1=press, 0=release
+            "value": self._key_label(idx),   # pritisnut karakter
+            "event": "pressed"
         }
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
@@ -90,20 +84,18 @@ class DmsKeypad:
         idx = int(idx)
         state = 1 if state else 0
 
-        if idx < 0 or idx >= len(self._states):
+        if idx < 0 or idx >= len(self._keys_flat):
             return
 
-        with self._lock:
-            if self._states[idx] == state:
-                return  # samo na promenu
-            self._states[idx] = state
+        #publish samo na press
+        if state != 1:
+            return
 
         if self.verbose:
             ts = time.strftime("%H:%M:%S", time.localtime())
-            label = "PRESSED" if state else "RELEASED"
-            print(f"[{self.settings['name']}] {ts} key={self._key_label(idx)} idx={idx} {label}")
+            print(f"[{self.settings['name']}] {ts} key={self._key_label(idx)} idx={idx} PRESSED")
 
-        self._publish_key_state(idx, state)
+        self._publish_key_pressed(idx)
 
     def start(self, stop_event):
         if self._thread and self._thread.is_alive():
@@ -124,17 +116,19 @@ class DmsKeypad:
         except Exception:
             pass
 
+    # Ručne akcije iz konzole:
     def press(self, idx: int):
         self._on_key_change(idx, 1)
 
     def release(self, idx: int):
+        # release se ignoriše (namerno)
         self._on_key_change(idx, 0)
 
     def tap(self, idx: int, duration: float = 0.08):
         def _pulse():
             self.press(idx)
             time.sleep(max(0.01, float(duration)))
-            self.release(idx)
+            self.release(idx)  # ignorisaće se
 
         threading.Thread(target=_pulse, daemon=True).start()
 
@@ -160,18 +154,8 @@ class DmsKeypad:
 
         threading.Thread(target=_enter, daemon=True).start()
 
-    def read_states(self):
-        with self._lock:
-            return list(self._states)
-
-    def is_pressed(self, idx: int) -> bool:
-        with self._lock:
-            if 0 <= idx < len(self._states):
-                return bool(self._states[idx])
-            return False
-
     def key_count(self) -> int:
-        return len(self._states)
+        return len(self._keys_flat)
 
     def keys(self):
         return list(self._keys_flat)

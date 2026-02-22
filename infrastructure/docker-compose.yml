@@ -1,12 +1,13 @@
 version: "3.7"
+
 services:
   # mqtt5 eclipse-mosquitto
   mqtt5:
     image: eclipse-mosquitto
     container_name: mqtt5
     ports:
-      - "1883:1883" #default mqtt port
-      - "9001:9001" #default mqtt port for websockets
+      - "1883:1883" # default mqtt port
+      - "9001:9001" # default mqtt port for websockets
     volumes:
       - ./broker-config:/mosquitto/config:rw
       - ./broker-data:/mosquitto/data:rw
@@ -31,6 +32,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    container_name: grafana
     ports:
       - "3000:3000"
     volumes:
@@ -40,15 +42,11 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     networks:
       - iot-network
 
-# volumes for mapping data,config and log
 volumes:
-  config:
-  data:
-  log:
-  influxdb:
   grafana:
 
 networks:
