@@ -59,12 +59,14 @@ export default function Pi3Tab() {
           panelId="panel-5"
         />
       </section>
+
       {/* LCD */}
       <section className="card">
-        <div className="grafana-wrap">
-          <h2>LCD - Living Room Display</h2>
-          <div className="tiny">TODO</div>
-        </div>
+        <GrafanaPanel
+          title="LCD - Living Room Display"
+          panelId="panel-6"
+          height={220}
+        />
       </section>
     </div>
   );
