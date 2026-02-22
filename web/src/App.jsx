@@ -375,7 +375,7 @@ function App() {
   return (
     <div className="container">
       <h1>Smart Home Dashboard</h1>
-      <div className="tiny">Backend: http://localhost:5000</div>
+      <div className="tiny">Backend: http://localhost:5001</div>
 
       {errorMsg && <div className="error">{errorMsg}</div>}
 

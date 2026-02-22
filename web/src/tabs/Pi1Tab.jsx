@@ -51,7 +51,14 @@ export default function Pi1Tab() {
 
       <section className="card no-chart">
         <h2>WEBC - Door Web Camera</h2>
-        <div className="tiny">Nema Grafana panel (još uvek).</div>
+
+        <div className="camera-wrap">
+          <img
+            src="http://<raspberry_pi_ip>:8080/?action=stream"
+            alt="Door camera stream"
+            className="camera-stream"
+          />
+        </div>
       </section>
     </div>
   );
