@@ -116,47 +116,41 @@ def mqtt_send(topic, payload: dict):
         print("MQTT SEND:", topic, payload)
     except Exception as e:
         print("MQTT SEND ERROR:", e)
-
 def save_to_db(data):
-    """
-    Ocekivani payload (npr.):
-    {
-      "measurement": "Distance" / "Motion",
-      "simulated": true,
-      "runs_on": "PI1",
-      "name": "DUS1" / "DPIR1",
-      "value": 123.4 / 1
-    }
-    """
     try:
         if "measurement" not in data:
             return
 
+        measurement = str(data["measurement"])
+        name = str(data.get("name", ""))
+
         point = (
-            Point(str(data["measurement"]))
+            Point(measurement)
             .tag("simulated", str(data.get("simulated", True)))
             .tag("runs_on", str(data.get("runs_on", "")))
-            .tag("name", str(data.get("name", "")))
+            .tag("name", name)
         )
 
         value = data.get("value", None)
 
-        if isinstance(value, bool):
-            point = point.field("value", value)
-        elif isinstance(value, (int, float)):
-            point = point.field("value", value)
+        if measurement == "IR" or name == "IR":
+            point = point.field("value_text", "" if value is None else str(value))
         else:
-            try:
-                point = point.field("value", float(value))
-            except Exception:
-                point = point.field("value_text", str(value))
+            if isinstance(value, bool):
+                point = point.field("value", value)
+            elif isinstance(value, (int, float)):
+                point = point.field("value", value)
+            else:
+                try:
+                    point = point.field("value", float(value))
+                except Exception:
+                    point = point.field("value_text", str(value))
 
         write_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
         write_api.write(bucket=bucket, org=org, record=point)
 
     except Exception as e:
         print("INFLUX SAVE ERROR:", e)
-
 def get_last_dus_values_from_db(dus_name: str, runs_on: str, n=3, lookback_s=15):
     try:
         query_api = influxdb_client.query_api()

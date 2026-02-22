@@ -1,18 +1,35 @@
 import time
-import random
+import threading
 
 
-def run_ir_simulator(settings, callback, stop_event):
-    period_s = float(settings.get("period_s", 1.0))
+class SimulationIrRemote:
+    """
+    - ručni event ide kroz komponentu IrRemote.press(...)
+    """
 
-    button_names = settings.get(
-        "button_names",
-        ["LEFT", "RIGHT", "UP", "DOWN", "OK", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "*", "#"]
-    )
+    def __init__(self, settings: dict, on_press):
+        self.settings = settings
+        self.on_press = on_press
+        self.tick = float(settings.get("sim_tick", 0.2))
 
-    rng = random.Random()
+        self._queue = []
+        self._lock = threading.Lock()
 
-    while not stop_event.is_set():
-        name = rng.choice(button_names)
-        callback(name)
-        time.sleep(period_s)
+    def trigger(self, button_name: str):
+        with self._lock:
+            self._queue.append(str(button_name))
+
+    def run(self, stop_event):
+        while not stop_event.is_set():
+            to_send = None
+            with self._lock:
+                if self._queue:
+                    to_send = self._queue.pop(0)
+
+            if to_send is not None:
+                self.on_press(to_send)
+
+            time.sleep(self.tick)
+
+    def cleanup(self):
+        pass
