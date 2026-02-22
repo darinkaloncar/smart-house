@@ -16,12 +16,12 @@ def dht_callback(humidity, temperature, settings):
 
     payload_h = {
         **base,
-        "measurement": "Humidity",
+        "measurement": "DHTHumidity",
         "value": float(humidity),
     }
     payload_t = {
         **base,
-        "measurement": "Temperature",
+        "measurement": "DHTTemperature",
         "value": float(temperature),
     }
     topic = f"{settings['runs_on']}/{settings['name']}"
