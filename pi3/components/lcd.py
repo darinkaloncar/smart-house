@@ -15,9 +15,9 @@ def lcd_callback(line1, line2, settings):
         "name": settings["name"],
         "line1": str(line1),
         "line2": str(line2),
-        "value": f"{line1} | {line2}" 
-        
+        "value": f"{line1} | {line2}"
     }
+
     topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
         batch.append((topic, json.dumps(payload), 0, True))
@@ -25,22 +25,33 @@ def lcd_callback(line1, line2, settings):
             publish_event.set()
 
 
-def run_lcd(settings, threads, stop_event):
+def run_lcd(settings, threads, stop_event, dht_snapshot_getter=None):
     simulated = settings.get("simulated", True)
 
     if simulated:
         th = threading.Thread(
             target=run_lcd_simulator,
-            args=(settings, lambda a, b: lcd_callback(a, b, settings), stop_event),
+            args=(
+                settings,
+                lambda a, b: lcd_callback(a, b, settings),
+                stop_event,
+                dht_snapshot_getter,
+            ),
             daemon=True
         )
     else:
         from sensors.lcd import run_lcd_loop
         th = threading.Thread(
             target=run_lcd_loop,
-            args=(settings, lcd_callback, stop_event),
+            args=(
+                settings,
+                lcd_callback,
+                stop_event,
+                dht_snapshot_getter,
+            ),
             daemon=True
         )
 
     th.start()
     threads.append(th)
+    return th
