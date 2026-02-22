@@ -15,7 +15,7 @@ class SimulationDoorSensor:
 
     def run(self, stop_event):
         # inicijalno stanje
-        self.on_change(0)
+        self.on_change(1)
 
         # idle loop
         while not stop_event.is_set():

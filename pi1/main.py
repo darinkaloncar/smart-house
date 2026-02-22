@@ -211,6 +211,10 @@ if __name__ == "__main__":
                     door_buzzer.on()
                 elif action == "off":
                     door_buzzer.off()
+                    client = mqtt.Client()
+                    client.connect("127.0.0.1", 1883, 60)
+                    client.publish("home/actuators/db/cmd", json.dumps({"command": "OFF", "reason": "Manual OFF"}))
+                    client.disconnect()
                 elif action == "beep":
                     door_buzzer.beep(2000)
                 else:
