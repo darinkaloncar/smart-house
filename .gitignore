@@ -77,3 +77,6 @@ infrastructure/mosquitto/log/
 
 # Grafana (if local persistence is used)
 infrastructure/grafana/data/
+
+infrastructure/broker-data/
+infrastructure/influxdb2/data/
