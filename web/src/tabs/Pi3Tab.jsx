@@ -2,17 +2,16 @@ import React from "react";
 import "./styles.css";
 
 const GRAFANA_BASE =
-  "http://localhost:3000/d-solo/adwr22k/smart-house?orgId=1&from=now-1h&to=now&refresh=1s&timezone=browser";
+  "http://localhost:3000/d-solo/advhvp6/new-dashboard?orgId=1&from=now-1h&to=now&refresh=1s&timezone=browser&__feature.dashboardSceneSolo=true";
 
-const panelSrc = (panelId, category = "State%20timeline") =>
-  `${GRAFANA_BASE}&showCategory=${category}&panelId=${panelId}`;
+const panelSrc = (panelId) => `${GRAFANA_BASE}&panelId=${panelId}`;
 
-function GrafanaPanel({ title, panelId, height = 200, category }) {
+function GrafanaPanel({ title, panelId, height = 200 }) {
   return (
     <div className="grafana-wrap">
       <h2>{title}</h2>
       <iframe
-        src={panelSrc(panelId, category)}
+        src={panelSrc(panelId)}
         className="grafana-frame"
         style={{ height }}
         frameBorder="0"
@@ -22,14 +21,6 @@ function GrafanaPanel({ title, panelId, height = 200, category }) {
   );
 }
 
-/**
- * Pi3Tab
- * Zameni panelId vrednosti stvarnim ID-jevima iz Grafane.
- * Preporuka:
- * - DPIR3 / IR / BRGB: State timeline
- * - DHT1 / DHT2: Time series
- * - LCD: Table (ili Time series ako upisuješ numeric value)
- */
 export default function Pi3Tab() {
   return (
     <div className="grid two-cols">
@@ -37,8 +28,7 @@ export default function Pi3Tab() {
       <section className="card">
         <GrafanaPanel
           title="DHT1 - Bedroom DHT"
-          panelId={31}
-          // category="Time%20series"
+          panelId="panel-1"
           height={220}
         />
       </section>
@@ -47,35 +37,34 @@ export default function Pi3Tab() {
       <section className="card">
         <GrafanaPanel
           title="DHT2 - Master Bedroom DHT"
-          panelId={32}
-          // category="Time%20series"
+          panelId="panel-2"
           height={220}
         />
       </section>
 
       {/* IR */}
       <section className="card">
-        <GrafanaPanel title="IR - Bedroom Infrared" panelId={33} />
+        <GrafanaPanel title="IR - Bedroom Infrared" panelId="panel-3" />
       </section>
 
       {/* BRGB */}
       <section className="card">
-        <GrafanaPanel title="BRGB - Bedroom RGB" panelId={34} />
-      </section>
-
-      {/* LCD */}
-      <section className="card">
-        <GrafanaPanel
-          title="LCD - Living Room Display"
-          panelId={35}
-          // category="Table"
-          height={220}
-        />
+        <GrafanaPanel title="BRGB - Bedroom RGB" panelId="panel-4" />
       </section>
 
       {/* DPIR3 */}
       <section className="card">
-        <GrafanaPanel title="DPIR3 - Living Room Motion Sensor" panelId={36} />
+        <GrafanaPanel
+          title="DPIR3 - Living Room Motion Sensor"
+          panelId="panel-5"
+        />
+      </section>
+      {/* LCD */}
+      <section className="card">
+        <div className="grafana-wrap">
+          <h2>LCD - Living Room Display</h2>
+          <div className="tiny">TODO</div>
+        </div>
       </section>
     </div>
   );
