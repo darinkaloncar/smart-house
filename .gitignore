@@ -59,3 +59,21 @@ env/
 # Embedded / firmware outputs
 *.elf
 *.hex
+
+# Infrastructure runtime data
+infrastructure/**/data/
+infrastructure/**/logs/
+infrastructure/**/tmp/
+infrastructure/**/volumes/
+
+# InfluxDB
+infrastructure/influxdb/data/
+infrastructure/influxdb/meta/
+infrastructure/influxdb/wal/
+
+# Mosquitto / MQTT broker
+infrastructure/mosquitto/data/
+infrastructure/mosquitto/log/
+
+# Grafana (if local persistence is used)
+infrastructure/grafana/data/
