@@ -58,9 +58,21 @@ function App() {
     ["*", "0", "#", "D"],
   ];
 
-  const handleKeyClick = (key) => {
-    setPinInput((prev) => prev + key);
-  };
+const handleKeyClick = (key) => {
+  if (key === "*") {
+    setPinInput("");
+    return;
+  }
+
+  if (key === "#") {
+    sendPin(); // enter / submit
+    return;
+  }
+
+  if (!/^[0-9A-D]$/i.test(key)) return;
+
+  setPinInput((prev) => (prev + key.toUpperCase()).slice(0, 8));
+};
 
   const loadStatus = async () => {
     try {
@@ -133,15 +145,19 @@ function App() {
 
   const sendPin = async () => {
     const pin = (pinInput || "").trim();
+    console.log("[UI] sendPin pin=", pin);
+
     if (!pin) return;
+
     try {
       for (const ch of pin) {
+        console.log("[UI] sending dms key:", ch);
         await sendDmsKey(ch);
       }
       setPinInput("");
       await loadStatus();
     } catch (e) {
-      console.error(e);
+      console.error("[UI] sendPin error", e);
     }
   };
 
@@ -191,12 +207,25 @@ function App() {
               {status?.system_armed ? "DA" : "NE"}
             </span>
           </div>
+          <div className="row">
+            <span>PIN set:</span>
+            <span className={boolClass(status?.pin_set)}>
+              {status?.pin_set ? "DA" : "NE"}
+            </span>
+          </div>
 
           <div className="row">
-            <span>Arming pending:</span>
-            <span className={boolClass(status?.arming_pending)}>
-              {status?.arming_pending ? "DA" : "NE"}
-            </span>
+            <span>Arming in:</span>
+            <strong>
+              {status?.arming_pending ? Math.max(0, Math.ceil((status.arming_until - Date.now() / 1000))) + "s" : "-"}
+            </strong>
+          </div>
+
+          <div className="row">
+            <span>Entry in:</span>
+            <strong>
+              {status?.entry_pending ? Math.max(0, Math.ceil((status.entry_until - Date.now() / 1000))) + "s" : "-"}
+            </strong>
           </div>
 
           <div className="row">
