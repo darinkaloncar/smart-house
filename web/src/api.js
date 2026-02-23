@@ -15,8 +15,7 @@ export const disarmSystem = () => api.post("/system/disarm", {});
 export const sendDmsKey = (key) => api.post("/dms/key", { key });
 
 export const setTimer = (seconds) => api.post("/timer/set", { seconds });
-export const setTimerAddN = (add_n) => api.post("/timer/config", { add_n });
-export const timerAdd = () => api.post("/timer/add", {});
+export const timerAdd = (seconds) => api.post("/timer/add", { seconds });
 
 export const setRgbColor = (color) => api.post("/rgb", { command: color });
 

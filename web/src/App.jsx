@@ -13,7 +13,6 @@ import {
   sendDmsKey,
   setRgbColor,
   setTimer,
-  setTimerAddN,
   timerAdd,
 } from "./api";
 
@@ -277,17 +276,19 @@ const handleKeyClick = (key) => {
 
           <div className="row">
             <span>Timer:</span>
-            <strong>{formatTimer(status?.timer_seconds)}</strong>
+            <strong>{String(status?.timer_seconds ?? "0000")}</strong>
             <span className={boolClass(status?.timer_blink)}>
               blink: {status?.timer_blink ? "DA" : "NE"}
             </span>
           </div>
 
+          {/* 1) Set timer seconds */}
           <div className="row">
             <input
               type="number"
               value={timerSecondsInput}
               onChange={(e) => setTimerSecondsInput(e.target.value)}
+              placeholder="npr. 90"
             />
             <button
               onClick={() =>
@@ -298,24 +299,18 @@ const handleKeyClick = (key) => {
             </button>
           </div>
 
+          {/* 2) Kitchen button press (add seconds from 2nd input) */}
           <div className="row">
             <input
               type="number"
               value={timerAddNInput}
               onChange={(e) => setTimerAddNInput(e.target.value)}
+              placeholder="npr. 10"
             />
             <button
-              onClick={() =>
-                call(() => setTimerAddN(Number(timerAddNInput) || 1))
-              }
+              onClick={() => call(() => timerAdd(Number(timerAddNInput) || 0))}
             >
-              Set BTN +N
-            </button>
-          </div>
-
-          <div className="row buttons">
-            <button onClick={() => call(() => timerAdd())}>
-              BTN Add / Stop Blink
+              Kitchen button
             </button>
           </div>
         </section>
