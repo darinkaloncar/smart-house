@@ -18,7 +18,7 @@ export const setTimer = (seconds) => api.post("/timer/set", { seconds });
 export const setTimerAddN = (add_n) => api.post("/timer/config", { add_n });
 export const timerAdd = () => api.post("/timer/add", {});
 
-export const setRgb = (payload) => api.post("/rgb", payload);
+export const setRgbColor = (color) => api.post("/rgb", { command: color });
 
 export const scenarioPi1Entry = () => api.post("/scenario/pi1_entry", {});
 export const scenarioPi1Exit = () => api.post("/scenario/pi1_exit", {});

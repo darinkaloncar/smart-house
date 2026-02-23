@@ -101,7 +101,7 @@ def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
             print("DHT UPDATE MQTT JSON ERROR:", e, msg.payload)
             return
         data = payload.get("update") if isinstance(payload, dict) and "update" in payload else payload
-        print("DHT UPDATE MQTT RECEIVED:", data)
+        #print("DHT UPDATE MQTT RECEIVED:", data)
         if not isinstance(data, dict):
             print("DHT UPDATE MQTT BAD PAYLOAD:", payload)
             return
@@ -110,13 +110,8 @@ def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
         if ok:
             name = data.get("name")
             snap = get_dht_snapshot().get(str(name), {})
-            print(
-                f"[DHT CACHE] {name}: "
-                f"T={snap.get('temperature')} "
-                f"H={snap.get('humidity')}"
-            )
-        else:
-            print("DHT UPDATE MQTT ignored payload:", data)
+            #print(f"[DHT CACHE] {name}: "f"T={snap.get('temperature')} "f"H={snap.get('humidity')}")
+        
 
     def loop():
         client = mqtt.Client()

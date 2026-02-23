@@ -80,6 +80,8 @@ state = {
         "DS2": {"value": 0, "since": None, "alarm_latched": False},
     },
     "empty_grace_until": 0.0,
+    "brgb_color": "off",
+    "brgb_on": False,
 }
 
 
@@ -636,6 +638,8 @@ def status():
                 "DUS1": state.get("dus_history", {}).get("DUS1", [])[-5:],
                 "DUS2": state.get("dus_history", {}).get("DUS2", [])[-5:],
             },
+            "brgb_color": state.get("brgb_color", "off"),
+            "brgb_on": state.get("brgb_on", False),
         })
 
 
@@ -684,6 +688,22 @@ def retrieve_aggregate_data():
     |> mean()"""
     return handle_influx_query(query)
 
+@app.route("/rgb", methods=["POST"])
+def set_rgb_route():
+    try:
+        data = request.get_json(force=True) or {}
+        color = str(data.get("command", "")).strip()
+
+        mqtt_send(TOPIC_RGB_CMD, {"command": color})
+
+        # opciono: sacuvaj stanje za /status
+        with lock:
+            state["brgb_color"] = color
+            state["brgb_on"] = (color.lower() != "off")
+
+        return jsonify({"status": "success", "color": color})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 
 if __name__ == "__main__":
