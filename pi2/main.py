@@ -1,5 +1,8 @@
 import threading
 import time
+import json
+
+import paho.mqtt.client as mqtt
 
 from publisher import start_publisher_thread
 from settings.settings import load_settings
@@ -7,7 +10,7 @@ from settings.settings import load_settings
 from components.btn import Button
 from components.dht3 import run_dht3
 from components.gsg import run_gsg
-from components.sd4 import run_sd4
+from components.sd4 import SD4
 
 from components.ds2 import DoorSensor
 from components.dpir2 import DoorPir
@@ -25,6 +28,87 @@ def _get_settings_key(settings: dict, *keys: str):
         if k in settings:
             return k
     return None
+
+
+def start_timer_mqtt_listener(stop_event, sd4, broker="127.0.0.1", port=1883):
+    """
+    Sluša timer komande sa kontrolera i poziva SD4 wrapper:
+      - topic set: {"set": <seconds>}
+      - topic add: {"add": <seconds>}
+    """
+    TOPIC_TIMER_SET_CMD = "home/actuators/timer/set"
+    TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
+
+    def on_connect(client, userdata, flags, rc):
+        print("TIMER MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_TIMER_SET_CMD)
+        client.subscribe(TOPIC_TIMER_ADD_CMD)
+
+    def on_message(client, userdata, msg):
+        if sd4 is None:
+            print("[TIMER MQTT] SD4 not initialized, ignoring command")
+            return
+
+        try:
+            payload = json.loads(msg.payload.decode())
+        except Exception as e:
+            print("TIMER MQTT JSON ERROR:", e, msg.payload)
+            return
+        try:
+            if msg.topic == TOPIC_TIMER_SET_CMD:
+                if "set" not in payload:
+                    print("TIMER MQTT BAD SET PAYLOAD:", payload)
+                    return
+
+                seconds = int(payload.get("set", 0))
+                seconds = max(0, min(seconds, 99 * 60 + 59))
+
+                sd4.set_seconds(seconds)
+                print(f"[TIMER MQTT] SET -> {seconds}s")
+
+            elif msg.topic == TOPIC_TIMER_ADD_CMD:
+                if "add" not in payload:
+                    print("TIMER MQTT BAD ADD PAYLOAD:", payload)
+                    return
+
+                seconds = int(payload.get("add", 0))
+                seconds = max(-(99 * 60 + 59), min(seconds, 99 * 60 + 59))                
+
+                sd4.add_seconds(seconds)
+                sign = "+" if seconds >= 0 else ""
+                print(f"[TIMER MQTT] ADD -> {sign}{seconds}s")
+
+        except Exception as e:
+            print("TIMER MQTT HANDLE ERROR:", e, "payload=", payload)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+
+        try:
+            client.connect(broker, port, 60)
+            client.loop_start()
+
+            while not stop_event.is_set():
+                time.sleep(0.1)
+
+        except Exception as e:
+            print("TIMER MQTT LOOP ERROR:", e)
+
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
 
 
 def print_help():
@@ -46,10 +130,15 @@ Commands:
   dus enter <steps>
   dus exit
   dus exit <steps>
-  
+
   btn press
 
   gsg move <intensity>
+
+  sd4 start
+  sd4 set <sec>
+  sd4 add <sec>
+  sd4 read
 
   status
   exit
@@ -95,9 +184,15 @@ if __name__ == "__main__":
     else:
         print("[WARN] Missing settings for DPIR2")
 
+    sd4 = None
     key = _get_settings_key(settings, "SD4", "4SD")
     if key:
-        run_sd4(settings[key], threads, stop_event)
+        sd4 = SD4(settings[key], verbose=True)
+
+        th_timer_listener = start_timer_mqtt_listener(stop_event, sd4)
+        if th_timer_listener:
+            threads.append(th_timer_listener)
+
     else:
         print("[WARN] Missing settings for 4SD/SD4")
 
@@ -155,6 +250,11 @@ if __name__ == "__main__":
                 if dus2:
                     d = dus2.read()
                     print(f"DUS2 distance = {d:.2f} cm" if d is not None else "DUS2 distance = N/A")
+                if sd4:
+                    try:
+                        print(f"SD4 display = {sd4.read()} ({sd4.read_seconds()}s)")
+                    except Exception:
+                        print("SD4 display = N/A")
 
             elif parts[0] == "gsg" and len(parts) >= 2:
                 if not gsg_cmd_q:
@@ -236,6 +336,10 @@ if __name__ == "__main__":
                     print("Wrong input (use: pir trigger [sec]|read)")
 
             elif parts[0] == "btn" and len(parts) >= 2:
+                if not btn:
+                    print("[ERR] BTN not configured")
+                    continue
+
                 if parts[1] == "press":
                     btn.press()
                 else:
@@ -282,6 +386,39 @@ if __name__ == "__main__":
                 else:
                     print("Wrong input (use: dus read | dus set <cm> | dus enter [steps] | dus exit [steps])")
 
+            # ---------------- SD4  ----------------
+            elif parts[0] == "sd4" and len(parts) >= 2:
+                if not sd4:
+                    print("[ERR] SD4/4SD not configured")
+                    continue
+
+                if parts[1] == "start":
+                    sd4.start()
+                    print("SD4 countdown started")
+
+                elif parts[1] == "set" and len(parts) >= 3:
+                    try:
+                        sec = int(parts[2])
+                        sd4.set_seconds(sec)
+                        print(f"SD4 set to {sec}s")
+                    except ValueError:
+                        print("Wrong input (use: sd4 set <sec>)")
+
+                elif parts[1] == "add" and len(parts) >= 3:
+                    try:
+                        sec = int(parts[2])
+                        sd4.add_seconds(sec)
+                        sign = "+" if sec >= 0 else ""
+                        print(f"SD4 add {sign}{sec}s")
+                    except ValueError:
+                        print("Wrong input (use: sd4 add <sec>)")
+
+                elif parts[1] == "read":
+                    print(f"SD4 display = {sd4.read()} ({sd4.read_seconds()}s)")
+
+                else:
+                    print("Wrong input (use: sd4 start | sd4 set <sec> | sd4 add <sec> | sd4 read)")
+
             else:
                 print("Wrong input")
 
@@ -306,6 +443,12 @@ if __name__ == "__main__":
         try:
             if dpir2 and hasattr(dpir2, "impl") and hasattr(dpir2.impl, "cleanup"):
                 dpir2.impl.cleanup()
+        except Exception:
+            pass
+
+        try:
+            if sd4:
+                sd4.shutdown()
         except Exception:
             pass
 
