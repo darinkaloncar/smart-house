@@ -10,8 +10,6 @@ import {
   armSystem,
   disarmSystem,
   getStatus,
-  scenarioPi1Entry,
-  scenarioPi1Exit,
   sendDmsKey,
   setRgb,
   setTimer,
@@ -30,6 +28,16 @@ function App() {
   const [timerAddNInput, setTimerAddNInput] = useState(10);
 
   const [rgb, setRgbState] = useState({ r: 255, g: 0, b: 0 });
+
+  const dmsKeys = [
+    ["1", "2", "3", "A"],
+    ["4", "5", "6", "B"],
+    ["7", "8", "9", "C"],
+    ["*", "0", "#", "D"],
+  ];
+  const handleKeyClick = (key) => {
+    setPinInput((prev) => prev + key);
+  };
 
   const loadStatus = async () => {
     try {
@@ -149,20 +157,6 @@ function App() {
               {status?.dl1_on ? "ON" : "OFF"}
             </span>
           </div>
-
-          <div className="row buttons">
-            <button onClick={() => call(() => alarmOn())}>
-              Alarm ON (test)
-            </button>
-            <button onClick={() => call(() => alarmOff())}>Alarm OFF</button>
-          </div>
-
-          <div className="row buttons">
-            <button onClick={() => call(() => armSystem())}>Arm system</button>
-            <button onClick={() => call(() => disarmSystem())}>
-              Disarm system
-            </button>
-          </div>
         </section>
 
         {/* DMS / PIN */}
@@ -180,14 +174,18 @@ function App() {
             <button onClick={sendPin}>Pošalji PIN</button>
           </div>
 
-          <div className="row buttons">
-            {["1", "2", "3", "4"].map((k) => (
-              <button key={k} onClick={() => call(() => sendDmsKey(k))}>
-                {k}
-              </button>
-            ))}
-            <button onClick={() => call(() => sendDmsKey("*"))}>*</button>
-            <button onClick={() => call(() => sendDmsKey("#"))}>#</button>
+          <div className="dms-grid">
+            {dmsKeys.map((row, rowIndex) =>
+              row.map((key) => (
+                <button
+                  key={`${rowIndex}-${key}`}
+                  onClick={() => handleKeyClick(key)}
+                  className="dms-key"
+                >
+                  {key}
+                </button>
+              ))
+            )}
           </div>
         </section>
 
@@ -293,23 +291,6 @@ function App() {
               RGB OFF
             </button>
             <button onClick={applyRgb}>Primeni boju</button>
-          </div>
-        </section>
-
-        {/* SCENARIOS */}
-        <section className="card">
-          <h2>Manual scenariji (DPIR + DUS)</h2>
-          <div className="row buttons">
-            <button onClick={() => call(() => scenarioPi1Entry())}>
-              PI1 ENTRY
-            </button>
-            <button onClick={() => call(() => scenarioPi1Exit())}>
-              PI1 EXIT
-            </button>
-          </div>
-          <div className="tiny">
-            Ovi scenariji šalju smislen DUS niz + DPIR okidanje da people_count
-            radi pouzdanije.
           </div>
         </section>
 
