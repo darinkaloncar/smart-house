@@ -398,6 +398,9 @@ def handle_sensor_message(data):
 
             print(f"[BRGB] command update via sensor message: {color}")
             mqtt_send(TOPIC_RGB_CMD, {"command": color})
+            with lock:
+                state["brgb_color"] = color
+                state["brgb_on"] = (color.lower() != "off")
             return
      # --- DHT ---
     if str(name).startswith("DHT"):
@@ -696,7 +699,6 @@ def set_rgb_route():
 
         mqtt_send(TOPIC_RGB_CMD, {"command": color})
 
-        # opciono: sacuvaj stanje za /status
         with lock:
             state["brgb_color"] = color
             state["brgb_on"] = (color.lower() != "off")
