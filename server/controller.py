@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
+token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot"
+bucket = "iot-db"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -30,6 +30,8 @@ TOPIC_DL1_CMD = "home/actuators/dl1/cmd"
 TOPIC_DB_CMD  = "home/actuators/db/cmd"
 TOPIC_RGB_CMD  = "home/actuators/rgb/cmd"
 TOPIC_DHT_UPDATE  = "home/actuators/dht/update"
+TOPIC_TIMER_SET_CMD = "home/actuators/timer/set"
+TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
 
 DS_UNLOCKED_SECONDS = 5.0
 ALARM_HOLD_S = 10.0         
@@ -100,6 +102,8 @@ state = {
 
     "brgb_color": "off",
     "brgb_on": False,
+    "timer_seconds": "00:00",
+    "timer_blink": False,
 
     # arming state
     "system_armed": False,
@@ -112,10 +116,10 @@ state = {
     "entry_reason": "",
 
     # DMS / PIN state
-    "pin_set": False,       
+    "pin_set": False,
     "current_pin": None,
-    "pin_code": None,       
-    "pin_masked": "",   
+    "pin_code": None,
+    "pin_masked": "",
     "dms_pin_buf": "",
 
     "notifications": [],
@@ -558,7 +562,7 @@ def handle_sensor_message(data):
     if name == "DMS" or str(data.get("measurement", "")).upper() == "DMS":
         handle_dms_key(value)
         return
-    
+
     if name == "IR":
             print(f"[IR] sensor message received: {value}")
 
@@ -573,6 +577,9 @@ def handle_sensor_message(data):
                 state["brgb_color"] = color
                 state["brgb_on"] = (color.lower() != "off")
             return
+    if name == "SD4":
+        with lock:
+            state["timer_seconds"] = value
      # --- DHT ---
     if str(name).startswith("DHT"):
         dht_payload = build_dht_update_payload(data)
@@ -596,7 +603,7 @@ def handle_sensor_message(data):
             if prev != v01:
                 if v01 == 0:
                     ds_state["since"] = now
-                    ds_state["opened_ts"] = now  
+                    ds_state["opened_ts"] = now
                 else:
                     ds_state["since"] = None
                     ds_state["alarm_latched"] = False
@@ -832,6 +839,8 @@ def status():
             "pin_masked": state.get("pin_masked", "****" if state.get("pin_set") else ""),
 
             "notifications": state.get("notifications", []),
+            "timer_seconds": state.get("timer_seconds", 0),
+            "timer_blink": state.get("timer_blink", False),
         })
 
 
@@ -905,6 +914,51 @@ def dms_key_route():
 
     handle_dms_key(key)
     return jsonify({"status": "ok"})
+@app.route("/timer/set", methods=["POST"])
+def timer_set_route():
+    try:
+        data = request.get_json(force=True) or {}
+        seconds = int(data.get("seconds", 0))
+
+        # MMSS clamp (99:59 max)
+        seconds = max(0, min(seconds, 99 * 60 + 59))
+
+        mqtt_send(TOPIC_TIMER_SET_CMD, {"set": seconds})
+
+
+        return jsonify({
+            "status": "success",
+            "seconds": seconds,
+            "topic": TOPIC_TIMER_SET_CMD,
+            "payload": {"set": seconds}
+        })
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid seconds"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/timer/add", methods=["POST"])
+def timer_add_route():
+    try:
+        data = request.get_json(force=True) or {}
+        seconds = int(data.get("seconds", 0))
+
+        # add može biti i negativan
+        seconds = max(-(99 * 60 + 59), min(seconds, 99 * 60 + 59))
+
+        mqtt_send(TOPIC_TIMER_ADD_CMD, {"add": seconds})
+
+
+        return jsonify({
+            "status": "success",
+            "seconds": seconds,
+            "topic": TOPIC_TIMER_ADD_CMD,
+            "payload": {"add": seconds}
+        })
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid seconds"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 if __name__ == "__main__":
     # start background timeout loop
