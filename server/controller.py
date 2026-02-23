@@ -19,16 +19,13 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
+token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot-db"
+bucket = "iot"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
-# -----------------------------
-# MQTT topics (komande aktuatorima)
-# -----------------------------
 TOPIC_DL1_CMD = "home/actuators/dl1/cmd"
 TOPIC_DB_CMD  = "home/actuators/db/cmd"
 TOPIC_RGB_CMD  = "home/actuators/rgb/cmd"
@@ -41,26 +38,44 @@ GSG_ACCEL_DELTA_THR = 0.25
 GSG_GYRO_NORM_THR = 80.0  
 EMPTY_GRACE_S = 4.0 
 
+# unosenje pina i aktiviranje sistema
+ARM_DELAY_S = 10.0        # nakon ispravnog PIN-a -> arm posle 10s
+ENTRY_DELAY_S = 10.0      # kad je armed i DS okine -> imaš 10s da uneseš PIN
+PIN_CODE = "2110"
+VALID_KEYS = set(["0","1","2","3","4","5","6","7","8","9","*","#","A","B","C","D"])
+
+PIN_LEN = 4
+
 lock = threading.Lock()
 
 state = {
     "people_count": 0,
     "sensors": {
+        "DS1": 1,
+        "DS2": 1,
+
         "DPIR1": 0,
         "DUS1": None,
         "DPIR2": 0,
         "DUS2": None,
         "DPIR3": 0,
+
         "GSG": None,
+        "DHT1": {"temp": None, "hum": None},
+        "DHT2": {"temp": None, "hum": None},
+        "DHT3": {"temp": None, "hum": None},
     },
+
     "dus_history": {
         "DUS1": [],
         "DUS2": [],
     },
+
     "alarm_sources": {
         "ds_unlocked": {"active": False, "reason": ""},
         "motion_empty": {"active": False, "reason": ""},
         "gsg_move": {"active": False, "reason": ""},
+        "armed_breach": {"active": False, "reason": ""},
     },
 
     "gsg": {
@@ -75,27 +90,135 @@ state = {
     "alarm_on": False,
     "alarm_reason": "",
     "alarm_reasons": [],
+
     "ds": {
-        "DS1": {"value": 0, "since": None, "alarm_latched": False},
-        "DS2": {"value": 0, "since": None, "alarm_latched": False},
+        "DS1": {"value": 1, "since": None, "alarm_latched": False, "opened_ts": 0.0},
+        "DS2": {"value": 1, "since": None, "alarm_latched": False, "opened_ts": 0.0},
     },
+
     "empty_grace_until": 0.0,
+
     "brgb_color": "off",
     "brgb_on": False,
+
+    # arming state
+    "system_armed": False,
+    "arming_pending": False,
+    "arming_until": 0.0,
+
+    # entry delay state
+    "entry_pending": False,
+    "entry_until": 0.0,
+    "entry_reason": "",
+
+    # DMS / PIN state
+    "pin_set": False,       
+    "current_pin": None,
+    "pin_code": None,       
+    "pin_masked": "",   
+    "dms_pin_buf": "",
+
+    "notifications": [],
 }
 
+#pin helper
+def _clear_alarm_all_sources():
+    for k in state["alarm_sources"].keys():
+        state["alarm_sources"][k]["active"] = False
+        state["alarm_sources"][k]["reason"] = ""
+    for ds_name in ("DS1", "DS2"):
+        state["ds"][ds_name]["alarm_latched"] = False
+
+def _disarm_and_silence(reason="PIN OK"):
+    state["system_armed"] = False
+    state["arming_pending"] = False
+    state["arming_until"] = 0.0
+
+    state["entry_pending"] = False
+    state["entry_until"] = 0.0
+    state["entry_reason"] = ""
+
+    _clear_alarm_all_sources()
+    state["alarm_on"] = False
+    state["alarm_reason"] = reason
+    state["alarm_reasons"] = [reason]
+
+    _reset_pin_state()
+
+    mqtt_send(TOPIC_DB_CMD, {"command": "OFF", "reason": reason})
+
+def _reset_pin_state():
+    state["pin_set"] = False
+    state["pin_code"] = None
+    state["pin_masked"] = ""
+    state["dms_pin_buf"] = ""
+
+def _start_arming(now: float):
+    state["system_armed"] = False
+
+    state["arming_pending"] = True
+    state["arming_until"] = now + float(ARM_DELAY_S)
+
+    state["entry_pending"] = False
+    state["entry_until"] = 0.0
+    state["entry_reason"] = ""
+
+    state["alarm_sources"]["armed_breach"]["active"] = False
+    state["alarm_sources"]["armed_breach"]["reason"] = ""
+
+def handle_dms_key(key: str):
+    now = time.time()
+    k = str(key).strip().upper()
+
+    with lock:
+        if k not in VALID_KEYS:
+            return
+
+        if k == "*":
+            state["dms_pin_buf"] = ""
+            return
+
+        if k == "#":
+            if len(state["dms_pin_buf"]) < PIN_LEN:
+                return
+            pin = state["dms_pin_buf"][:PIN_LEN]
+            state["dms_pin_buf"] = ""
+        else:
+            state["dms_pin_buf"] = (state["dms_pin_buf"] + k)[:8]
+
+            if len(state["dms_pin_buf"]) < PIN_LEN:
+                return
+            pin = state["dms_pin_buf"][:PIN_LEN]
+            state["dms_pin_buf"] = ""
+
+        if not state.get("pin_set", False):
+            state["pin_set"] = True
+            state["pin_code"] = pin
+            state["pin_masked"] = "*" * len(pin)
+
+            _start_arming(now)
+
+            print(f"[PIN] Master PIN set. Arming in {ARM_DELAY_S}s")
+            return
+
+        if pin == state.get("pin_code"):
+            print("[PIN] Correct PIN -> disarm")
+            _disarm_and_silence("PIN OK (disarm)")
+            return
+
+        print("[PIN] Wrong PIN")
 
 # alarm helper
-
 def _recompute_alarm(now: float):
     desired = (
         state["alarm_sources"]["ds_unlocked"]["active"]
         or state["alarm_sources"]["motion_empty"]["active"]
         or state["alarm_sources"]["gsg_move"]["active"]
+        or state["alarm_sources"]["armed_breach"]["active"]
     )
 
     reasons = []
-    for k in ("ds_unlocked", "motion_empty", "gsg_move"):
+    for k in ("ds_unlocked", "motion_empty", "gsg_move", "armed_breach"):
         src = state["alarm_sources"][k]
         if src.get("active"):
             reasons.append(src.get("reason") or k)
@@ -109,21 +232,29 @@ def _recompute_alarm(now: float):
 
     state["alarm_on"] = desired
 
-    reasons = []
-    for k in ("ds_unlocked", "motion_empty", "gsg_move"):
-        if state["alarm_sources"][k]["active"]:
-            reasons.append(state["alarm_sources"][k].get("reason", k))
-
-    mqtt_send(TOPIC_DB_CMD, {"command": "ON" if desired else "OFF", "reason": "; ".join(reasons)})
+    mqtt_send(
+        TOPIC_DB_CMD,
+        {"command": "ON" if desired else "OFF", "reason": state["alarm_reason"]}
+    )
     print(f"[ALARM] {'ON' if desired else 'OFF'} reasons={reasons}")
 
 
 def alarm_pulse(source_key: str, hold_s: float, reason: str):
     now = time.time()
+
     with lock:
-        state["alarm_sources"]["gsg_move"]["active"] = True
-        state["alarm_sources"]["gsg_move"]["reason"] = "GSG significant movement"
-        _recompute_alarm(time.time())
+        state["alarm_sources"][source_key]["active"] = True
+        state["alarm_sources"][source_key]["reason"] = reason
+        _recompute_alarm(now)
+
+    def _off_later():
+        time.sleep(float(hold_s))
+        with lock:
+            state["alarm_sources"][source_key]["active"] = False
+            state["alarm_sources"][source_key]["reason"] = ""
+            _recompute_alarm(time.time())
+
+    threading.Thread(target=_off_later, daemon=True).start()
 
 # -----------------------------
 # Server helper functions
@@ -267,15 +398,22 @@ def activate_dl1_for_10s():
 def background_loop():
     while True:
         now = time.time()
+        should_turn_off_dl1 = False
 
         with lock:
+            if state.get("arming_pending", False) and now >= float(state.get("arming_until", 0.0)):
+                state["arming_pending"] = False
+                state["arming_until"] = 0.0
+                state["system_armed"] = True
+                print("[ARM] System ARMED")
+
             ds_should_be_on = False
             ds_reason = ""
 
             for ds_name in ("DS1", "DS2"):
                 ds = state["ds"][ds_name]
 
-                # 0 open
+                # 0 = open
                 if ds["value"] == 0 and ds["since"] is not None:
                     if (now - ds["since"]) >= DS_UNLOCKED_SECONDS:
                         ds["alarm_latched"] = True
@@ -288,8 +426,37 @@ def background_loop():
             state["alarm_sources"]["ds_unlocked"]["active"] = ds_should_be_on
             state["alarm_sources"]["ds_unlocked"]["reason"] = ds_reason
 
-            should_turn_off_dl1 = False
-            if state["dl1_on"] and now >= state["dl1_until"]:
+            if state.get("system_armed", False):
+                # start entry only on "recent open event"
+                if not state.get("entry_pending", False) and not state.get("alarm_on", False):
+                    who = ""
+                    opened_at = 0.0
+
+                    for ds_name in ("DS1", "DS2"):
+                        ts = float(state["ds"][ds_name].get("opened_ts", 0.0))
+                        if ts > opened_at:
+                            opened_at = ts
+                            who = ds_name
+
+                    if opened_at > 0.0 and (now - opened_at) < 1.0:
+                        state["entry_pending"] = True
+                        state["entry_until"] = now + ENTRY_DELAY_S
+                        state["entry_reason"] = f"{who} opened while armed"
+                        print(f"[ENTRY] Pending {ENTRY_DELAY_S}s reason={state['entry_reason']}")
+
+                # when entry is done - breach alarm source ON
+                if state.get("entry_pending", False) and now >= float(state.get("entry_until", 0.0)):
+                    state["alarm_sources"]["armed_breach"]["active"] = True
+                    state["alarm_sources"]["armed_breach"]["reason"] = state.get("entry_reason") or "Entry delay expired"
+            else:
+                # not armed -> clear entry/breach
+                state["entry_pending"] = False
+                state["entry_until"] = 0.0
+                state["entry_reason"] = ""
+                state["alarm_sources"]["armed_breach"]["active"] = False
+                state["alarm_sources"]["armed_breach"]["reason"] = ""
+
+            if state.get("dl1_on", False) and now >= float(state.get("dl1_until", 0.0)):
                 state["dl1_on"] = False
                 state["dl1_until"] = 0.0
                 should_turn_off_dl1 = True
@@ -388,6 +555,10 @@ def handle_sensor_message(data):
     now = time.time()
 
     measurement = data.get("measurement", "")
+    if name == "DMS" or str(data.get("measurement", "")).upper() == "DMS":
+        handle_dms_key(value)
+        return
+    
     if name == "IR":
             print(f"[IR] sensor message received: {value}")
 
@@ -415,8 +586,7 @@ def handle_sensor_message(data):
         return
 
     if name in ("DS1", "DS2"):
-        v01 = _norm_ds01(value)  
-
+        v01 = _norm_ds01(value)
         with lock:
             ds_state = state["ds"][name]
             prev = ds_state["value"]
@@ -425,14 +595,11 @@ def handle_sensor_message(data):
 
             if prev != v01:
                 if v01 == 0:
-                    # start timer when released 0
                     ds_state["since"] = now
+                    ds_state["opened_ts"] = now  
                 else:
-                    # resed when back on 1
                     ds_state["since"] = None
                     ds_state["alarm_latched"] = False
-
-                print(f"[{name}] value={value!r} normalized={v01}")
 
         return
 
@@ -566,6 +733,9 @@ def handle_gsg_message(measurement: str, value):
 
         if ax is None or ay is None or az is None or gx is None or gy is None or gz is None:
             return
+        if (abs(ax) < 1e-6 and abs(ay) < 1e-6 and abs(az) < 1e-6 and
+            abs(gx) < 1e-6 and abs(gy) < 1e-6 and abs(gz) < 1e-6):
+            return
 
         if (now - float(g.get("last_trigger", 0.0))) < GSG_COOLDOWN_S:
             return
@@ -629,20 +799,39 @@ mqtt_client.loop_start()
 def status():
     with lock:
         return jsonify({
-            "people_count": state["people_count"],
-            "dl1_on": state["dl1_on"],
-            "dl1_until": state["dl1_until"],
-            "sensors": state["sensors"],
+            "people_count": state.get("people_count", 0),
+
+            "dl1_on": state.get("dl1_on", False),
+            "dl1_until": state.get("dl1_until", 0.0),
+
+            "sensors": state.get("sensors", {}),
 
             "alarm_on": state.get("alarm_on", False),
-            "reason": state["alarm_reason"],
+            "reason": state.get("alarm_reason", ""),
+            "alarm_reasons": state.get("alarm_reasons", []),
+
             "ds_debug": state.get("ds", {}),
+
             "dus_history_last_5": {
                 "DUS1": state.get("dus_history", {}).get("DUS1", [])[-5:],
                 "DUS2": state.get("dus_history", {}).get("DUS2", [])[-5:],
             },
+
             "brgb_color": state.get("brgb_color", "off"),
             "brgb_on": state.get("brgb_on", False),
+
+            "system_armed": state.get("system_armed", False),
+            "arming_pending": state.get("arming_pending", False),
+            "arming_until": state.get("arming_until", 0.0),
+
+            "entry_pending": state.get("entry_pending", False),
+            "entry_until": state.get("entry_until", 0.0),
+            "entry_reason": state.get("entry_reason", ""),
+
+            "pin_set": state.get("pin_set", False),
+            "pin_masked": state.get("pin_masked", "****" if state.get("pin_set") else ""),
+
+            "notifications": state.get("notifications", []),
         })
 
 
@@ -707,6 +896,15 @@ def set_rgb_route():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
+@app.route("/dms/key", methods=["POST"])
+def dms_key_route():
+    data = request.get_json(force=True) or {}
+    key = str(data.get("key", "")).strip()
+    if not key:
+        return jsonify({"status": "error", "message": "missing key"}), 400
+
+    handle_dms_key(key)
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     # start background timeout loop
