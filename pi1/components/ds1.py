@@ -89,9 +89,9 @@ class DoorSensor:
         Bez blokiranja pozivaoca (pokreće posebnu nit).
         """
         def _pulse():
-            self.press()
-            time.sleep(max(0.0, float(duration)))
             self.release()
+            time.sleep(max(0.0, float(duration)))
+            self.press()
 
         threading.Thread(target=_pulse, daemon=True).start()
 
