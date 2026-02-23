@@ -144,6 +144,49 @@ def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
     th = threading.Thread(target=loop, daemon=True)
     th.start()
     return th
+def start_rgb_mqtt_listener(stop_event, brgb, broker="127.0.0.1", port=1883):
+    TOPIC_RGB_CMD = "home/actuators/rgb/cmd"
+
+    def on_connect(client, userdata, flags, rc):
+        print("RGB MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_RGB_CMD)
+
+    def on_message(client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode())
+            color = str(payload["command"]).strip()   # npr. {"command":"blue"}
+        except Exception as e:
+            print("RGB MQTT ERROR:", e, msg.payload)
+            return
+
+        print("RGB MQTT RECEIVED color =", color)
+
+        brgb.set_color(color)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+
+        try:
+            client.connect(broker, port, 60)
+            client.loop_start()
+
+            while not stop_event.is_set():
+                time.sleep(0.1)
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
 
 def print_help():
     print("""
@@ -205,6 +248,10 @@ if __name__ == "__main__":
             th_brgb = brgb.start(stop_event)
             if th_brgb:
                 threads.append(th_brgb)
+            # RGB MQTT listener
+            th_rgb_listener = start_rgb_mqtt_listener(stop_event, brgb)
+            if th_rgb_listener:
+                threads.append(th_rgb_listener)
         except Exception as e:
             print(f"[WARN] BRGB failed to start: {e}")
     else:
@@ -239,6 +286,7 @@ if __name__ == "__main__":
                 print(f"[WARN] DPIR3 fallback failed to start: {e}")
     else:
         print("[WARN] Missing settings for DPIR3")
+    
 
     print_help()
 

@@ -31,6 +31,7 @@ influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 # -----------------------------
 TOPIC_DL1_CMD = "home/actuators/dl1/cmd"
 TOPIC_DB_CMD  = "home/actuators/db/cmd"
+TOPIC_RGB_CMD  = "home/actuators/rgb/cmd"
 TOPIC_DHT_UPDATE  = "home/actuators/dht/update"
 
 DS_UNLOCKED_SECONDS = 5.0
@@ -344,6 +345,38 @@ def build_dht_update_payload(data: dict):
         "type": dht_type,      # "temperature" ili "humidity"
         "value": data.get("value")
     }
+
+
+COLOR_ORDER = [
+    "white",     # 1
+    "red",       # 2
+    "green",     # 3
+    "blue",      # 4
+    "yellow",    # 5
+    "purple",    # 6
+    "lightBlue", # 7
+]
+
+def ir_value_to_command(value):
+    if value is None:
+        return None
+
+    v = str(value).strip().lower()
+
+    # numeričke vrednosti
+    if v.isdigit():
+        n = int(v)
+
+        if n == 0:
+            return "off"
+
+        # 1.. -> boje
+        idx = n - 1
+        if 0 <= idx < len(COLOR_ORDER):
+            return COLOR_ORDER[idx]
+
+    return None
+    
 def handle_sensor_message(data):
     name = data.get("name")
     if not name:
@@ -353,6 +386,17 @@ def handle_sensor_message(data):
     now = time.time()
 
     measurement = data.get("measurement", "")
+    if name == "IR":
+            print(f"[IR] sensor message received: {value}")
+
+            color = ir_value_to_command(value)
+            if color is None:
+                print(f"[IR] unsupported value: {value}")
+                return
+
+            print(f"[BRGB] command update via sensor message: {color}")
+            mqtt_send(TOPIC_RGB_CMD, {"command": color})
+            return
      # --- DHT ---
     if str(name).startswith("DHT"):
         dht_payload = build_dht_update_payload(data)
