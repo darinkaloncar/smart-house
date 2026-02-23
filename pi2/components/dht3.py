@@ -2,7 +2,7 @@ import json
 import threading
 
 from simulators.dht import run_dht_simulator
-from sensors.dht import run_dht_loop
+from sensors.dht import run_dht_loop,  DHT
 
 from globals import batch, publish_limit, counter_lock, publish_event
 
@@ -48,7 +48,7 @@ def run_dht3(settings, threads, stop_event):
         dht = DHT(pin)
         th = threading.Thread(
             target=run_dht_loop,
-            args=(dht, delay, lambda h, t, code=None: dht_callback(h, t, settings, code), stop_event),
+            args=(dht, delay, lambda h, t, code=None: dht_callback(h, t, settings), stop_event),
             daemon=True
         )
 

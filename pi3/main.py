@@ -27,7 +27,8 @@ except Exception:
 import json
 import paho.mqtt.client as mqtt
 
-
+BROKER_HOST = "192.168.107.120"
+BROKER_PORT = 1883
 state_lock = threading.Lock()
 pi3_state = {
     "dht": {
@@ -83,7 +84,7 @@ def _get_settings_key(settings: dict, *keys: str):
             return k
     return None
 
-def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
+def start_dht_mqtt_listener(stop_event, broker=BROKER_HOST, port=1883):
     """
     Listens for DHT updates forwarded by controller and updates local dht PI3 cache.
     
@@ -139,7 +140,7 @@ def start_dht_mqtt_listener(stop_event, broker="127.0.0.1", port=1883):
     th = threading.Thread(target=loop, daemon=True)
     th.start()
     return th
-def start_rgb_mqtt_listener(stop_event, brgb, broker="127.0.0.1", port=1883):
+def start_rgb_mqtt_listener(stop_event, brgb, broker=BROKER_HOST, port=1883):
     TOPIC_RGB_CMD = "home/actuators/rgb/cmd"
 
     def on_connect(client, userdata, flags, rc):
