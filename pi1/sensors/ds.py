@@ -8,7 +8,7 @@ except Exception:
 
 class RealDoorSensor:
     """
-    šalje 0/1 na promenu stanja + inicijalno stanje.
+    Šalje 0/1 na promenu stanja + inicijalno stanje.
     """
 
     def __init__(self, settings: dict, on_change):
@@ -20,7 +20,7 @@ class RealDoorSensor:
         self.poll_interval = float(settings.get("poll_interval", 0.03))
         self.on_change = on_change
 
-        self._last = None
+        self._last = None  # type: ignore
 
         GPIO.setwarnings(False)
         try:
@@ -36,30 +36,36 @@ class RealDoorSensor:
 
         # Ako koristimo pull-up:
         # raw=0 => pritisnuto => value=1
-        # raw=1 => otpusteno => value=0
+        # raw=1 => otpušteno => value=0
         if self.pull_up:
             return 1 if raw == 0 else 0
 
         # pull-down:
         # raw=1 => pritisnuto => value=1
-        # raw=0 => otpusteno => value=0
+        # raw=0 => otpušteno => value=0
         return 1 if raw == 1 else 0
 
     def run(self, stop_event):
         while not stop_event.is_set():
-            val = self._read_value()
+            try:
+                val = self._read_value()
 
-            if self._last is None:
-                self._last = val
-                self.on_change(val)  # init state
-            elif val != self._last:
-                self._last = val
-                self.on_change(val)  # press/release
+                if self._last is None:
+                    self._last = val
+                    self.on_change(val)  # inicijalno stanje
+                elif val != self._last:
+                    self._last = val
+                    self.on_change(val)  # promena stanja (press/release)
 
-            time.sleep(self.poll_interval)
+            except Exception:
+                # Ne ruši celu nit zbog sporadične GPIO greške
+                pass
+
+            time.sleep(max(0.001, self.poll_interval))
 
     def cleanup(self):
         try:
-            GPIO.cleanup(self.pin)
+            if GPIO is not None:
+                GPIO.cleanup(self.pin)
         except Exception:
             pass

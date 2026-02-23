@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 try:
     import RPi.GPIO as GPIO
@@ -30,9 +31,15 @@ class RealBuzzer:
         self.pwm = GPIO.PWM(self.pin, self.default_freq)
         self._initialized = False
 
-    def on(self, pitch: int | None = None, duty_cycle: float | None = None):
-        freq = pitch if pitch else self.default_freq
-        dc = duty_cycle if duty_cycle else self.default_duty
+    def on(self, pitch: Optional[int] = None, duty_cycle: Optional[float] = None):
+        freq = self.default_freq if pitch is None else int(pitch)
+        dc = self.default_duty if duty_cycle is None else float(duty_cycle)
+
+        # Safety clamp for PWM duty cycle
+        if dc < 0:
+            dc = 0.0
+        elif dc > 100:
+            dc = 100.0
 
         if not self._initialized:
             self.pwm.start(dc)
@@ -49,16 +56,17 @@ class RealBuzzer:
             self._initialized = False
         self._state = False
 
-    def beep(self, ms: int, pitch: int | None = None):
+    def beep(self, ms: int, pitch: Optional[int] = None):
         self.on(pitch=pitch)
-        time.sleep(ms / 1000.0)
+        time.sleep(max(0, int(ms)) / 1000.0)
         self.off()
 
-    def is_on(self):
+    def is_on(self) -> bool:
         return self._state
 
     def cleanup(self):
         try:
             self.off()
         finally:
-            GPIO.cleanup(self.pin)
+            if GPIO is not None:
+                GPIO.cleanup(self.pin)
