@@ -11,11 +11,33 @@ import {
   disarmSystem,
   getStatus,
   sendDmsKey,
-  setRgb,
+  setRgbColor,
   setTimer,
   setTimerAddN,
   timerAdd,
 } from "./api";
+
+const BRGB_OPTIONS = [
+  "off",
+  "white",
+  "red",
+  "green",
+  "blue",
+  "yellow",
+  "purple",
+  "lightBlue",
+];
+
+const BRGB_PREVIEW = {
+  off: "rgb(0,0,0)",
+  white: "rgb(255,255,255)",
+  red: "rgb(255,0,0)",
+  green: "rgb(0,255,0)",
+  blue: "rgb(0,0,255)",
+  yellow: "rgb(255,255,0)",
+  purple: "rgb(255,0,255)",
+  lightBlue: "rgb(0,255,255)",
+};
 
 function App() {
   const [status, setStatus] = useState(null);
@@ -27,7 +49,7 @@ function App() {
   const [timerSecondsInput, setTimerSecondsInput] = useState(90);
   const [timerAddNInput, setTimerAddNInput] = useState(10);
 
-  const [rgb, setRgbState] = useState({ r: 255, g: 0, b: 0 });
+  const [selectedBrgbColor, setSelectedBrgbColor] = useState("off");
 
   const dmsKeys = [
     ["1", "2", "3", "A"],
@@ -35,6 +57,7 @@ function App() {
     ["7", "8", "9", "C"],
     ["*", "0", "#", "D"],
   ];
+
   const handleKeyClick = (key) => {
     setPinInput((prev) => prev + key);
   };
@@ -56,6 +79,18 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const backendColor = status?.brgb_color;
+    if (
+      typeof backendColor === "string" &&
+      BRGB_OPTIONS.includes(backendColor)
+    ) {
+      setSelectedBrgbColor(backendColor);
+    } else if (status?.brgb_on === false) {
+      setSelectedBrgbColor("off");
+    }
+  }, [status?.brgb_color, status?.brgb_on]);
+
   const boolClass = (v) => (v ? "pill on" : "pill off");
 
   const formatTimer = (seconds) => {
@@ -68,14 +103,29 @@ function App() {
   const sensor = (name) => status?.sensors?.[name];
 
   const rgbPreview = useMemo(() => {
-    const c = status?.brgb_color || rgb;
-    return `rgb(${c?.r || 0}, ${c?.g || 0}, ${c?.b || 0})`;
-  }, [status, rgb]);
+    const backendColor = status?.brgb_color;
+
+    if (typeof backendColor === "string" && BRGB_PREVIEW[backendColor]) {
+      return BRGB_PREVIEW[backendColor];
+    }
+
+    if (
+      backendColor &&
+      typeof backendColor === "object" &&
+      "r" in backendColor &&
+      "g" in backendColor &&
+      "b" in backendColor
+    ) {
+      return `rgb(${backendColor.r || 0}, ${backendColor.g || 0}, ${backendColor.b || 0})`;
+    }
+
+    return BRGB_PREVIEW[selectedBrgbColor] || BRGB_PREVIEW.off;
+  }, [status, selectedBrgbColor]);
 
   const call = async (fn) => {
     try {
       await fn();
-      loadStatus();
+      await loadStatus();
     } catch (e) {
       console.error(e);
     }
@@ -89,20 +139,23 @@ function App() {
         await sendDmsKey(ch);
       }
       setPinInput("");
-      loadStatus();
+      await loadStatus();
     } catch (e) {
       console.error(e);
     }
   };
 
-  const applyRgb = async () => {
-    await call(() =>
-      setRgb({
-        r: Number(rgb.r) || 0,
-        g: Number(rgb.g) || 0,
-        b: Number(rgb.b) || 0,
-      }),
-    );
+  const handleBrgbChange = async (e) => {
+    const color = e.target.value;
+
+    setSelectedBrgbColor(color);
+
+    try {
+      await setRgbColor(color);
+      await loadStatus();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const renderTabContent = () => {
@@ -184,7 +237,7 @@ function App() {
                 >
                   {key}
                 </button>
-              ))
+              )),
             )}
           </div>
         </section>
@@ -251,46 +304,18 @@ function App() {
           </div>
 
           <div className="row">
-            <label>R</label>
-            <input
-              type="number"
-              min="0"
-              max="255"
-              value={rgb.r}
-              onChange={(e) =>
-                setRgbState((p) => ({ ...p, r: e.target.value }))
-              }
-            />
-            <label>G</label>
-            <input
-              type="number"
-              min="0"
-              max="255"
-              value={rgb.g}
-              onChange={(e) =>
-                setRgbState((p) => ({ ...p, g: e.target.value }))
-              }
-            />
-            <label>B</label>
-            <input
-              type="number"
-              min="0"
-              max="255"
-              value={rgb.b}
-              onChange={(e) =>
-                setRgbState((p) => ({ ...p, b: e.target.value }))
-              }
-            />
-          </div>
-
-          <div className="row buttons">
-            <button onClick={() => call(() => setRgb({ on: true }))}>
-              RGB ON
-            </button>
-            <button onClick={() => call(() => setRgb({ on: false }))}>
-              RGB OFF
-            </button>
-            <button onClick={applyRgb}>Primeni boju</button>
+            <label htmlFor="brgb-color">Boja</label>
+            <select
+              id="brgb-color"
+              value={selectedBrgbColor}
+              onChange={handleBrgbChange}
+            >
+              {BRGB_OPTIONS.map((color) => (
+                <option key={color} value={color}>
+                  {color}
+                </option>
+              ))}
+            </select>
           </div>
         </section>
 
@@ -323,6 +348,7 @@ function App() {
               <b>GSG:</b> {String(sensor("GSG"))}
             </div>
           </div>
+
           <div className="mono">
             DHT1: T={String(sensor("DHT1")?.temp)} H=
             {String(sensor("DHT1")?.hum)}
