@@ -22,7 +22,8 @@ try:
 except Exception:
     pass
 
-
+BROKER_HOST = "192.168.107.120"
+BROKER_PORT = 1883
 def _get_settings_key(settings: dict, *keys: str):
     for k in keys:
         if k in settings:
@@ -30,7 +31,7 @@ def _get_settings_key(settings: dict, *keys: str):
     return None
 
 
-def start_timer_mqtt_listener(stop_event, sd4, broker="127.0.0.1", port=1883):
+def start_timer_mqtt_listener(stop_event, sd4, broker=BROKER_HOST, port=BROKER_PORT):
     """
     Sluša timer komande sa kontrolera i poziva SD4 wrapper:
       - topic set: {"set": <seconds>}
