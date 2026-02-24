@@ -41,7 +41,7 @@ def run_lcd(settings, threads, stop_event, dht_snapshot_getter=None):
             daemon=True
         )
     else:
-        from sensors.lcd import run_lcd_loop
+        from sensors.lcdf import run_lcd_loop
         th = threading.Thread(
             target=run_lcd_loop,
             args=(
