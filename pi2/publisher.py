@@ -5,7 +5,7 @@ from paho.mqtt import publish
 
 from globals import batch, publish_limit, counter_lock, publish_event
 
-HOSTNAME = "192.168.107.120"
+HOSTNAME = "localhost"
 PORT = 1883
 
 def publisher_task():

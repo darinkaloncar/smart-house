@@ -22,7 +22,7 @@ try:
 except Exception:
     pass
 
-BROKER_HOST = "192.168.107.120"
+BROKER_HOST = "127.0.0.1"
 BROKER_PORT = 1883
 def _get_settings_key(settings: dict, *keys: str):
     for k in keys:

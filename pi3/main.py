@@ -27,7 +27,7 @@ except Exception:
 import json
 import paho.mqtt.client as mqtt
 
-BROKER_HOST = "192.168.107.120"
+BROKER_HOST = "127.0.0.1"
 BROKER_PORT = 1883
 state_lock = threading.Lock()
 pi3_state = {

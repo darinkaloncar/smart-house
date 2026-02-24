@@ -17,7 +17,7 @@ except Exception:
     pass
 import json
 import paho.mqtt.client as mqtt
-BROKER_HOST = "192.168.107.120"
+BROKER_HOST = "127.0.0.1"
 BROKER_PORT = 1883
 
 def start_local_dpir1_to_dl_thread(dpir1, door_light, stop_event, on_seconds=10.0, cooldown_s=0.5):
