@@ -16,6 +16,7 @@ export const sendDmsKey = (key) => api.post("/dms/key", { key });
 
 export const setTimer = (seconds) => api.post("/timer/set", { seconds });
 export const timerAdd = (seconds) => api.post("/timer/add", { seconds });
+export const kitchenBtnPressed = () => api.post("/btn/pressed");
 
 export const setRgbColor = (color) => api.post("/rgb", { command: color });
 

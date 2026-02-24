@@ -14,6 +14,7 @@ import {
   setRgbColor,
   setTimer,
   timerAdd,
+  kitchenBtnPressed,
 } from "./api";
 
 const BRGB_OPTIONS = [
@@ -57,21 +58,21 @@ function App() {
     ["*", "0", "#", "D"],
   ];
 
-const handleKeyClick = (key) => {
-  if (key === "*") {
-    setPinInput("");
-    return;
-  }
+  const handleKeyClick = (key) => {
+    if (key === "*") {
+      setPinInput("");
+      return;
+    }
 
-  if (key === "#") {
-    sendPin(); // enter / submit
-    return;
-  }
+    if (key === "#") {
+      sendPin(); // enter / submit
+      return;
+    }
 
-  if (!/^[0-9A-D]$/i.test(key)) return;
+    if (!/^[0-9A-D]$/i.test(key)) return;
 
-  setPinInput((prev) => (prev + key.toUpperCase()).slice(0, 8));
-};
+    setPinInput((prev) => (prev + key.toUpperCase()).slice(0, 8));
+  };
 
   const loadStatus = async () => {
     try {
@@ -216,14 +217,24 @@ const handleKeyClick = (key) => {
           <div className="row">
             <span>Arming in:</span>
             <strong>
-              {status?.arming_pending ? Math.max(0, Math.ceil((status.arming_until - Date.now() / 1000))) + "s" : "-"}
+              {status?.arming_pending
+                ? Math.max(
+                    0,
+                    Math.ceil(status.arming_until - Date.now() / 1000),
+                  ) + "s"
+                : "-"}
             </strong>
           </div>
 
           <div className="row">
             <span>Entry in:</span>
             <strong>
-              {status?.entry_pending ? Math.max(0, Math.ceil((status.entry_until - Date.now() / 1000))) + "s" : "-"}
+              {status?.entry_pending
+                ? Math.max(
+                    0,
+                    Math.ceil(status.entry_until - Date.now() / 1000),
+                  ) + "s"
+                : "-"}
             </strong>
           </div>
 
@@ -276,10 +287,9 @@ const handleKeyClick = (key) => {
 
           <div className="row">
             <span>Timer:</span>
-            <strong>{String(status?.timer_seconds ?? "0000")}</strong>
-            <span className={boolClass(status?.timer_blink)}>
-              blink: {status?.timer_blink ? "DA" : "NE"}
-            </span>
+            <div className="timer-row">
+              <strong>{String(status?.timer_seconds ?? "00:00")}</strong>
+            </div>
           </div>
 
           {/* 1) Set timer seconds */}
@@ -299,7 +309,7 @@ const handleKeyClick = (key) => {
             </button>
           </div>
 
-          {/* 2) Kitchen button press (add seconds from 2nd input) */}
+          {/* 2) Add seconds button press */}
           <div className="row">
             <input
               type="number"
@@ -310,6 +320,12 @@ const handleKeyClick = (key) => {
             <button
               onClick={() => call(() => timerAdd(Number(timerAddNInput) || 0))}
             >
+              Set add seconds
+            </button>
+          </div>
+          {/* 2) Kitchen button press */}
+          <div className="row">
+            <button onClick={() => call(() => kitchenBtnPressed())}>
               Kitchen button
             </button>
           </div>

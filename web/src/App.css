@@ -181,3 +181,14 @@ input {
   border-radius: 8px;
   cursor: pointer;
 }
+.timer-row {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.timer-row strong {
+  min-width: 70px;
+  text-align: center;
+}
