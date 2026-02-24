@@ -12,8 +12,12 @@ class SD4Simulator:
       - add_seconds(seconds)
       - shutdown()
 
+    + blink support:
+      - set_blinking(flag)
+      - is_blinking()
+
     callback:
-      callback(text4, settings)   # npr. "0459"
+      callback(text4, settings)   # npr. "04:59"
     """
 
     def __init__(self, settings, callback=None):
@@ -30,6 +34,11 @@ class SD4Simulator:
         self._run_event = threading.Event()   # set => countdown radi
         self._thread = None
 
+        self.blinking = False
+        self._blink_visible = True
+        self._last_blink_toggle = time.time()
+        self._blink_interval_s = float(self.settings.get("blink_interval_s", 0.5))
+
     # ---------------- PUBLIC API ----------------
 
     def start(self):
@@ -38,23 +47,45 @@ class SD4Simulator:
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
 
-        self._run_event.set()
+        with self._lock:
+            self._run_event.set()
+            self._last_blink_toggle = time.time()
 
     def set_seconds(self, seconds):
-        """Postavi preostalo vreme (MMSS clamp)."""
+        """Postavi preostalo vreme (MMSS clamp). Gasi blink."""
         with self._lock:
             self.remaining = self._clamp(int(seconds))
+            self.blinking = False
+            self._blink_visible = True
+            self._last_blink_toggle = time.time()
             text4 = self._format_text4(self.remaining)
 
         self.callback(text4, self.settings)
 
     def add_seconds(self, seconds):
-        """Dodaj/oduzmi sekunde (može i negativno)."""
+        """Dodaj/oduzmi sekunde (može i negativno). Ako doda >0, gasi blink."""
         with self._lock:
             self.remaining = self._clamp(self.remaining + int(seconds))
+
+            # Ako je bio blink i sada opet ima vremena ugasi blink
+            if self.remaining > 0:
+                self.blinking = False
+                self._blink_visible = True
+                self._last_blink_toggle = time.time()
+
             text4 = self._format_text4(self.remaining)
 
         self.callback(text4, self.settings)
+
+    def set_blinking(self, flag: bool):
+        with self._lock:
+            self.blinking = bool(flag)
+            self._blink_visible = True
+            self._last_blink_toggle = time.time()
+
+    def is_blinking(self) -> bool:
+        with self._lock:
+            return bool(self.blinking)
 
     def shutdown(self):
         """Ugasi simulator nit."""
@@ -64,6 +95,7 @@ class SD4Simulator:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
 
+    # ---------------- INTERNAL ----------------
 
     def _clamp(self, seconds):
         # MMSS prikaz max 99:59
@@ -73,6 +105,18 @@ class SD4Simulator:
         mm = seconds // 60
         ss = seconds % 60
         return f"{mm:02d}:{ss:02d}"
+
+    def _current_display_text(self):
+        """
+        Ako blinkuje na 00:00:
+          - naizmenično prikazuj '00:00' i prazno
+        Inače:
+          - normalan prikaz remaining
+        """
+        with self._lock:
+            if self.blinking and self.remaining == 0:
+                return "00:00" if self._blink_visible else "     "
+            return self._format_text4(self.remaining)
 
     def _loop(self):
         # odmah po startovanju niti javi trenutno stanje
@@ -86,20 +130,35 @@ class SD4Simulator:
             # countdown radi samo nakon start()
             if self._run_event.is_set():
                 while now - last_tick >= 1.0:
+                    reached_zero_now = False
+
                     with self._lock:
                         if self.remaining > 0:
                             self.remaining -= 1
-                        text4 = self._format_text4(self.remaining)
+                            if self.remaining == 0:
+                                reached_zero_now = True
 
-                    self.callback(text4, self.settings)
+                        # Kad dođe do 0, uključi blink i zaustavi countdown
+                        if reached_zero_now:
+                            self.blinking = True
+                            self._blink_visible = True
+                            self._last_blink_toggle = time.time()
+                            self._run_event.clear()
+
                     last_tick += 1.0
             else:
                 # dok nije startovan, ne "troši" vreme
                 last_tick = now
 
-            # periodično emitovanje trenutnog stanja 
+            # blink toggle
             with self._lock:
-                text4 = self._format_text4(self.remaining)
+                if self.blinking and self.remaining == 0:
+                    if (now - self._last_blink_toggle) >= self._blink_interval_s:
+                        self._blink_visible = not self._blink_visible
+                        self._last_blink_toggle = now
 
+            # periodično emitovanje trenutnog stanja
+            text4 = self._current_display_text()
             self.callback(text4, self.settings)
+
             time.sleep(self.period_s)

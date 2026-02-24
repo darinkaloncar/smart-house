@@ -19,13 +19,8 @@ NUM = {
 
 class SD4Timer:
     """
-    Minimal 4-digit 7-seg countdown (MMSS), multiplexed display.
-
-    API:
-      - start()
-      - set_seconds(seconds)
-      - add_seconds(seconds)
-      - shutdown()
+    4-digit 7-seg countdown (MM:SS), multiplexed display.
+    + blinking when time reaches 00:00
     """
 
     def __init__(self, settings, callback=None):
@@ -39,7 +34,6 @@ class SD4Timer:
         self.blink_dot = bool(self.settings.get("blink_dot", True))
         self.dot_digit = int(self.settings.get("dot_digit", 1))
 
-        # Za common cathode / common anode module
         self.segment_on = int(self.settings.get("segment_on", 1))
         self.segment_off = 0 if self.segment_on == 1 else 1
         self.digit_on = int(self.settings.get("digit_on", 0))
@@ -50,48 +44,51 @@ class SD4Timer:
 
         self._lock = threading.Lock()
         self._shutdown_event = threading.Event()
-        self._run_event = threading.Event()   # set => countdown radi
+        self._run_event = threading.Event()
         self._thread = None
         self._gpio_ready = False
+        self.blinking = False
 
     # ---------------- PUBLIC API ----------------
 
     def start(self):
-        """Pokrene prikaz + countdown. Ako nit ne postoji, kreira je."""
         if self._thread is None or not self._thread.is_alive():
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
-
         self._run_event.set()
 
     def set_seconds(self, seconds):
-        """Postavi preostalo vreme (MMSS clamp), bez gašenja niti."""
         with self._lock:
             self.remaining = self._clamp(int(seconds))
+            self.blinking = False
             text4 = self._format_text4(self.remaining)
-
         self.callback(text4, self.settings)
 
     def add_seconds(self, seconds):
-        """Dodaj/oduzmi sekunde (može i negativno), sa clamp-om."""
         with self._lock:
             self.remaining = self._clamp(self.remaining + int(seconds))
             text4 = self._format_text4(self.remaining)
+        self.callback(text4, self.settings)
 
+    def is_blinking(self):
+        with self._lock:
+            return bool(self.blinking)
+
+    def set_blinking(self, value: bool):
+        with self._lock:
+            self.blinking = bool(value)
+            text4 = self._format_text4(self.remaining)
         self.callback(text4, self.settings)
 
     def shutdown(self):
-        """Ugasi countdown, nit i očisti SD4 GPIO pinove."""
         self._run_event.clear()
         self._shutdown_event.set()
-
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
 
     # ---------------- INTERNAL ----------------
 
     def _clamp(self, seconds):
-        # MMSS => max 99:59
         return max(0, min(int(seconds), 99 * 60 + 59))
 
     def _format_text4(self, seconds):
@@ -135,48 +132,71 @@ class SD4Timer:
 
         self._setup_gpio(GPIO)
 
-        # odmah po startovanju niti javi trenutno stanje
+        # odmah po startu javi stanje
         self.callback(self._format_text4(self.remaining), self.settings)
 
         last_tick = time.time()
+        last_callback_text = None
 
         try:
             while not self._shutdown_event.is_set():
                 now = time.time()
 
-                # countdown radi samo nakon start()
+                # countdown
                 if self._run_event.is_set():
                     while now - last_tick >= 1.0:
                         with self._lock:
                             if self.remaining > 0:
                                 self.remaining -= 1
-                            text4 = self._format_text4(self.remaining)
-
-                        self.callback(text4, self.settings)
+                                if self.remaining == 0:
+                                    self.blinking = True  # uključi blinking kad istekne
                         last_tick += 1.0
                 else:
-                    # dok nije startovan, ne "troši" vreme
                     last_tick = now
 
+                # priprema prikaza
                 with self._lock:
-                    text4 = self._format_text4(self.remaining)
+                    text_full = self._format_text4(self.remaining)
+                    blinking = self.blinking
 
-                # multiplex prikaz
+                # blinking smejivanje
+                if blinking and self.remaining == 0:
+                    visible = (int(now * 2) % 2 == 0)  # menja na oko 0.5s
+                    render_text = text_full if visible else "    "
+                    callback_text = render_text
+                else:
+                    render_text = text_full
+                    callback_text = text_full
+
+                # callback samo kad se promeni
+                if callback_text != last_callback_text:
+                    self.callback(callback_text, self.settings)
+                    last_callback_text = callback_text
+
                 for di in range(4):
                     if self._shutdown_event.is_set():
                         break
 
-                    self._all_digits_off(GPIO)  # anti-ghosting
+                    self._all_digits_off(GPIO)
 
-                    ch = text4[di]
+                    if len(render_text) == 5:
+                        ch = render_text[[0, 1, 3, 4][di]]
+                        colon_enabled = True
+                    else:
+                        ch = render_text[di]
+                        colon_enabled = False
+
                     pattern = NUM.get(ch, NUM[" "])
 
                     for si in range(7):
                         self._set_segment(GPIO, self.segments[si], pattern[si] == 1)
 
-                    # tačkica (opciono)
+                    # dot/colon segment
                     if len(self.segments) >= 8:
-                        dot_on = self.blink_dot and (int(now) % 2 == 0) and (di == self.dot_digit)
+                        if colon_enabled:
+                            dot_on = self.blink_dot and (int(now) % 2 == 0) and (di == self.dot_digit)
+                        else:
+                            dot_on = False
                         self._set_segment(GPIO, self.segments[7], dot_on)
 
                     GPIO.output(self.digits[di], self.digit_on)
