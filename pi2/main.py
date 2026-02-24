@@ -31,11 +31,29 @@ def _get_settings_key(settings: dict, *keys: str):
     return None
 
 
+def handle_btn_pressed(sd4, value):
+    if sd4 is None:
+        return
+
+    try:
+        n = int(value)
+    except Exception:
+        n = 0
+
+    if hasattr(sd4, "is_blinking") and sd4.is_blinking():
+        sd4.set_blinking(False)
+        print("[TIMER MQTT] BTN -> blinking OFF")
+        return
+    else:
+        sd4.add_seconds(n)
+        sign = "+" if n >= 0 else ""
+        print(f"[TIMER MQTT] BTN -> add {sign}{n}s")
+
 def start_timer_mqtt_listener(stop_event, sd4, broker=BROKER_HOST, port=BROKER_PORT):
     """
     Sluša timer komande sa kontrolera i poziva SD4 wrapper:
       - topic set: {"set": <seconds>}
-      - topic add: {"add": <seconds>}
+      - topic add: {"value": <seconds>}
     """
     TOPIC_TIMER_SET_CMD = "home/actuators/timer/set"
     TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
@@ -66,18 +84,16 @@ def start_timer_mqtt_listener(stop_event, sd4, broker=BROKER_HOST, port=BROKER_P
 
                 sd4.set_seconds(seconds)
                 print(f"[TIMER MQTT] SET -> {seconds}s")
+                sd4.start()
+                print(f"[TIMER MQTT] STARTED")
 
             elif msg.topic == TOPIC_TIMER_ADD_CMD:
-                if "add" not in payload:
+                if "value" not in payload:
                     print("TIMER MQTT BAD ADD PAYLOAD:", payload)
                     return
 
-                seconds = int(payload.get("add", 0))
-                seconds = max(-(99 * 60 + 59), min(seconds, 99 * 60 + 59))                
-
-                sd4.add_seconds(seconds)
-                sign = "+" if seconds >= 0 else ""
-                print(f"[TIMER MQTT] ADD -> {sign}{seconds}s")
+                seconds = payload.get("value", 0)
+                handle_btn_pressed(sd4, seconds)
 
         except Exception as e:
             print("TIMER MQTT HANDLE ERROR:", e, "payload=", payload)
@@ -111,6 +127,72 @@ def start_timer_mqtt_listener(stop_event, sd4, broker=BROKER_HOST, port=BROKER_P
     th.start()
     return th
 
+def kitchen_btn_mqtt_listener(stop_event, btn, broker=BROKER_HOST, port=BROKER_PORT):
+    """
+    Sluša komandu za kitchen button:
+      - topic: home/actuators/btn/pressed
+      - payload: {"cmd": "pressed"}
+    """
+    TOPIC_BTN_PRESSED = "home/actuators/btn/pressed"
+
+    def on_connect(client, userdata, flags, rc):
+        print("KITCHEN BTN MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_BTN_PRESSED)
+
+    def on_message(client, userdata, msg):
+        if btn is None:
+            print("[KITCHEN BTN MQTT] BTN not initialized, ignoring command")
+            return
+
+        try:
+            payload = json.loads(msg.payload.decode())
+        except Exception as e:
+            print("KITCHEN BTN MQTT JSON ERROR:", e, msg.payload)
+            return
+
+        try:
+            cmd = str(payload.get("cmd", "")).strip().lower()
+        except Exception:
+            cmd = ""
+
+        if cmd != "pressed":
+            print("KITCHEN BTN MQTT BAD PAYLOAD:", payload)
+            return
+
+        try:
+            btn.press()
+            print("[KITCHEN BTN MQTT] PRESSED")
+        except Exception as e:
+            print("KITCHEN BTN MQTT HANDLE ERROR:", e, "payload=", payload)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+
+        try:
+            client.connect(broker, port, 60)
+            client.loop_start()
+
+            while not stop_event.is_set():
+                time.sleep(0.1)
+
+        except Exception as e:
+            print("KITCHEN BTN MQTT LOOP ERROR:", e)
+
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
 
 def print_help():
     print("""
@@ -217,6 +299,11 @@ if __name__ == "__main__":
         t = btn.start(stop_event)
         if t:
             threads.append(t)
+
+        # BTN MQTT listener (web kitchen button press)
+        th_btn_listener = kitchen_btn_mqtt_listener(stop_event, btn)
+        if th_btn_listener:
+            threads.append(th_btn_listener)
     else:
         print("[WARN] Missing settings for BTN")
 
