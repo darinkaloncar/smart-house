@@ -32,7 +32,7 @@ TOPIC_RGB_CMD  = "home/actuators/rgb/cmd"
 TOPIC_DHT_UPDATE  = "home/actuators/dht/update"
 TOPIC_TIMER_SET_CMD = "home/actuators/timer/set"
 TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
-
+TOPIC_BTN_PRESSED = "home/actuators/btn/pressed"
 DS_UNLOCKED_SECONDS = 5.0
 ALARM_HOLD_S = 10.0         
 GSG_COOLDOWN_S = 2.0        
@@ -103,7 +103,7 @@ state = {
     "brgb_color": "off",
     "brgb_on": False,
     "timer_seconds": "00:00",
-    "timer_blink": False,
+    "timer_add": 0,
 
     # arming state
     "system_armed": False,
@@ -559,6 +559,10 @@ def handle_sensor_message(data):
     now = time.time()
 
     measurement = data.get("measurement", "")
+    if name == "BTN":
+        if value == 1:
+            mqtt_send(TOPIC_TIMER_ADD_CMD, {"value": state.get("timer_add", 0)})
+
     if name == "DMS" or str(data.get("measurement", "")).upper() == "DMS":
         handle_dms_key(value)
         return
@@ -945,9 +949,7 @@ def timer_add_route():
 
         # add može biti i negativan
         seconds = max(-(99 * 60 + 59), min(seconds, 99 * 60 + 59))
-
-        mqtt_send(TOPIC_TIMER_ADD_CMD, {"add": seconds})
-
+        state["timer_add"] = seconds
 
         return jsonify({
             "status": "success",
@@ -957,6 +959,21 @@ def timer_add_route():
         })
     except (TypeError, ValueError):
         return jsonify({"status": "error", "message": "Invalid seconds"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/btn/pressed", methods=["POST"])
+def btn_pressed_route():
+    try:
+        payload = {"cmd": "pressed"}
+        mqtt_send(TOPIC_BTN_PRESSED, payload)
+
+        return jsonify({
+            "status": "success",
+            "topic": TOPIC_BTN_PRESSED,
+            "payload": payload
+        }), 200
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
