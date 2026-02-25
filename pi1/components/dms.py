@@ -2,7 +2,7 @@ import json
 import time
 import threading
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_slow, publish_limit_slow, counter_lock, publish_event_slow
 
 
 class DmsKeypad:
@@ -61,7 +61,7 @@ class DmsKeypad:
         raise ValueError(f"Key '{key_label}' not found in DMS layout")
 
     def _publish_key_pressed(self, idx: int):
-        global publish_limit
+        global publish_limit_slow
 
         payload = {
             "measurement": "DMS",
@@ -74,9 +74,9 @@ class DmsKeypad:
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_slow.append((topic, json.dumps(payload), 0, False))
+            if len(batch_slow) >= publish_limit_slow:
+                publish_event_slow.set()
 
     def _on_key_change(self, idx: int, state: int):
         idx = int(idx)

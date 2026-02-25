@@ -1,7 +1,7 @@
 import threading
 import time
 
-from publisher import start_publisher_thread
+from publisher import start_publisher_threads
 from settings.settings import load_settings
 from components.dms import DmsKeypad
 from components.ds1 import DoorSensor
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     threads = []
     stop_event = threading.Event()
 
-    start_publisher_thread()
+    start_publisher_threads()
 
     ds1 = DoorSensor(settings["DS1"], verbose=True)
     ds1_thread = ds1.start(stop_event)

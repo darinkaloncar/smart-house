@@ -1,5 +1,5 @@
 import json
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 
 class DoorLight:
     def __init__(self, settings):
@@ -15,7 +15,6 @@ class DoorLight:
             self.impl = SimulationLED(settings)
 
     def _publish_state(self):
-        global publish_limit
 
         payload = {
             "measurement": "LightState",
@@ -26,10 +25,8 @@ class DoorLight:
         }
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def on(self):
         self._state = True

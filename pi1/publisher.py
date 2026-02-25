@@ -1,32 +1,33 @@
-import json
 import threading
-import time
 from paho.mqtt import publish
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import (
+    batch_slow,
+    batch_fast,
+    publish_event_slow,
+    publish_event_fast,
+    counter_lock
+)
 
 HOSTNAME = "localhost"
 PORT = 1883
 
-def publisher_task():
-    global publish_limit
-
+def _drain_loop(batch_ref, event_ref):
     while True:
-        publish_event.wait()
+        event_ref.wait()
 
-        with counter_lock:
-            local_copy = batch.copy()
-            batch.clear()
+        while True:
+            with counter_lock:
+                if not batch_ref:
+                    event_ref.clear()
+                    break
 
-        if local_copy:
+                local_copy = batch_ref.copy()
+                batch_ref.clear()
+
             publish.multiple(local_copy, hostname=HOSTNAME, port=PORT)
-            #print(f"[PUBLISHER] Published {len(local_copy)} values.")
 
 
-        publish_event.clear()
-
-
-def start_publisher_thread():
-    th = threading.Thread(target=publisher_task, daemon=True)
-    th.start()
-    return th
+def start_publisher_threads():
+    threading.Thread(target=_drain_loop, args=(batch_fast, publish_event_fast), daemon=True).start()
+    threading.Thread(target=_drain_loop,args=(batch_slow, publish_event_slow),daemon=True).start()

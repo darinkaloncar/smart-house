@@ -2,7 +2,7 @@ import json
 import time
 import threading
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_slow, publish_limit_slow, counter_lock, publish_event_slow
 
 
 class DoorUltrasonic:
@@ -28,7 +28,6 @@ class DoorUltrasonic:
             self.impl = RealUltrasonic(settings, on_distance=self._on_distance)
 
     def _publish_distance(self, distance_cm: float):
-        global publish_limit
 
         payload = {
             "measurement": "Distance",
@@ -40,9 +39,9 @@ class DoorUltrasonic:
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_slow.append((topic, json.dumps(payload), 0, False))
+            if len(batch_slow) >= publish_limit_slow:
+                publish_event_slow.set()
 
     def _on_distance(self, distance_cm: float):
         try:
