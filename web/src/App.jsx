@@ -400,21 +400,6 @@ function App() {
             {String(sensor("DHT3")?.hum)}
           </div>
         </section>
-
-        {/* NOTIFICATIONS */}
-        <section className="card">
-          <h2>Notifikacije</h2>
-          <div className="notif-list">
-            {(status?.notifications || [])
-              .slice()
-              .reverse()
-              .map((n, i) => (
-                <div key={i} className="notif-item">
-                  <span className="time">{n.time}</span> — {n.message}
-                </div>
-              ))}
-          </div>
-        </section>
       </div>
     );
   };
