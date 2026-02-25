@@ -3,7 +3,7 @@ import threading
 import queue
 
 from simulators.gsg import run_gsg_simulator
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 from sensors.gsg import run_gsg_loop
 
 
@@ -17,19 +17,17 @@ def _append_axis_payloads(prefix, values, settings):
             "name": settings["name"],
             "value": float(values[i]),
         }
-        batch.append((f"{prefix} {axis}", json.dumps(payload), 0, True))
+        batch_fast.append((f"{prefix} {axis}", json.dumps(payload), 0, False))
 
 
 def gsg_callback(accel, gyro, settings):
-    global publish_limit
 
     with counter_lock:
         topic = f"{settings['runs_on']}/{settings['name']}"
         _append_axis_payloads(f"{topic}/Accelerometer", accel, settings)
         _append_axis_payloads(f"{topic}/Gyroscope", gyro, settings)
 
-        if len(batch) >= publish_limit:
-            publish_event.set()
+        publish_event_fast.set()
 
 
 def run_gsg(settings, threads, stop_event):

@@ -2,7 +2,7 @@ import json
 import time
 import threading
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 
 
 class SD4:
@@ -39,7 +39,6 @@ class SD4:
             self.impl = SD4Timer(settings, callback=self._on_display_update)
 
     def _publish_state(self):
-        global publish_limit
 
         with self._lock:
             text4 = str(self._text4)
@@ -59,9 +58,8 @@ class SD4:
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
 
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def _parse_text_to_seconds(self, text4: str):
         """

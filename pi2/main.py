@@ -4,7 +4,7 @@ import json
 
 import paho.mqtt.client as mqtt
 
-from publisher import start_publisher_thread
+from publisher import start_publisher_threads
 from settings.settings import load_settings
 
 from components.btn import Button
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     threads = []
     stop_event = threading.Event()
 
-    start_publisher_thread()
+    start_publisher_threads()
 
     ds2 = None
     key = _get_settings_key(settings, "DS2")

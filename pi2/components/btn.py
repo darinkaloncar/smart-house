@@ -2,7 +2,7 @@ import json
 import threading
 import queue
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 from simulators.button import run_button_simulator
 
 
@@ -17,7 +17,6 @@ class Button:
         self._cmd_q = queue.Queue()
 
     def _publish(self, value: int):
-        global publish_limit
 
         self._state = 1 if int(value) else 0
 
@@ -32,9 +31,8 @@ class Button:
         topic = f"{payload['runs_on']}/{payload['name']}"
 
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
         if self.verbose:
             print(f"[{payload['name']}] BTN={self._state}")
