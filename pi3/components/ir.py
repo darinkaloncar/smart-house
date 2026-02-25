@@ -1,8 +1,7 @@
 import json
 import time
 import threading
-
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 
 
 class IrRemote:
@@ -39,15 +38,14 @@ class IrRemote:
             "simulated": self.settings.get("simulated", True),
             "runs_on": self.settings["runs_on"],
             "name": self.settings["name"],
-            "value": str(button_name),   # npr. OK, LEFT, 1...
+            "value": str(button_name),   
             "event": "pressed"
         }
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def _on_ir_press(self, button_name: str):
         button_name = str(button_name)

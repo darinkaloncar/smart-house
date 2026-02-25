@@ -4,7 +4,7 @@ import threading
 from simulators.dht import run_dht_simulator
 from sensors.dht import run_dht_loop, DHT
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_slow, publish_limit_slow, counter_lock, publish_event_slow
 
 
 def dht_callback(humidity, temperature, settings):
@@ -26,11 +26,11 @@ def dht_callback(humidity, temperature, settings):
     }
     topic = f"{settings['runs_on']}/{settings['name']}"
     with counter_lock:
-        batch.append((f"{topic}/Humidity", json.dumps(payload_h), 0, True))
-        batch.append((f"{topic}/Temperature", json.dumps(payload_t), 0, True))
+        batch_slow.append((f"{topic}/Humidity", json.dumps(payload_h), 0, False))
+        batch_slow.append((f"{topic}/Temperature", json.dumps(payload_t), 0, False))
 
-        if len(batch) >= publish_limit:
-            publish_event.set()
+        if len(batch_slow) >= publish_limit_slow:
+            publish_event_slow.set()
 
 
 def run_dht2(settings, threads, stop_event):

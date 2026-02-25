@@ -2,7 +2,7 @@ import json
 import time
 import threading
 
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 
 
 class BrgbLed:
@@ -33,7 +33,6 @@ class BrgbLed:
             self.impl = RealBrgbLed(settings, on_change=self._on_color_change)
 
     def _publish_color_changed(self, color: str):
-        global publish_limit
 
         payload = {
             "measurement": "BRGB",
@@ -46,9 +45,8 @@ class BrgbLed:
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def _on_color_change(self, color: str):
         color = str(color)

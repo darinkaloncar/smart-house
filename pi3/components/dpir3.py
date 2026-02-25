@@ -1,7 +1,7 @@
 import json
 import time
 import threading
-from globals import batch, publish_limit, counter_lock, publish_event
+from globals import batch_fast, counter_lock, publish_event_fast
 
 
 class DoorPir:
@@ -36,9 +36,8 @@ class DoorPir:
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
 
         with counter_lock:
-            batch.append((topic, json.dumps(payload), 0, True))
-            if len(batch) >= publish_limit:
-                publish_event.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def _on_motion_change(self, value: int):
         value = 1 if value else 0

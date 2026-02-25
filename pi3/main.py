@@ -1,7 +1,7 @@
 import threading
 import time
 
-from publisher import start_publisher_thread
+from publisher import start_publisher_threads
 from settings.settings import load_settings
 
 from components.brgb import BrgbLed
@@ -11,9 +11,8 @@ from components.lcd import run_lcd
 from components.dht1 import run_dht1
 from components.dht2 import run_dht2
 
-# Probaj klasu za DPIR3; fallback na run_dpir3 ako još nije refaktorisano
 try:
-    from components.dpir3 import DoorPir as Pir3Sensor  # class-style (preferred)
+    from components.dpir3 import DoorPir as Pir3Sensor 
 except Exception:
     Pir3Sensor = None
     from components.dpir3 import run_dpir3  # fallback
@@ -150,7 +149,7 @@ def start_rgb_mqtt_listener(stop_event, brgb, broker=BROKER_HOST, port=1883):
     def on_message(client, userdata, msg):
         try:
             payload = json.loads(msg.payload.decode())
-            color = str(payload["command"]).strip()   # npr. {"command":"blue"}
+            color = str(payload["command"]).strip()  
         except Exception as e:
             print("RGB MQTT ERROR:", e, msg.payload)
             return
@@ -213,7 +212,7 @@ if __name__ == "__main__":
     threads = []
     stop_event = threading.Event()
 
-    start_publisher_thread()
+    start_publisher_threads()
 
     th_dht_listener = start_dht_mqtt_listener(stop_event)
     if th_dht_listener:
@@ -387,7 +386,6 @@ if __name__ == "__main__":
                     brgb.off()
                     continue
 
-                # npr. lightBlue (ostavi case kako je uneto)
                 color = " ".join(parts[1:]).strip()
                 brgb.set_color(color)
                 continue
@@ -425,7 +423,6 @@ if __name__ == "__main__":
                     def pulse():
                         try:
                             if hasattr(dpir3, "trigger_motion"):
-                                # ako tvoja klasa već ima ovu metodu
                                 dpir3.trigger_motion(duration)
                                 return
 
