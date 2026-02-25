@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
+token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot-db"
+bucket = "iot"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -185,14 +185,14 @@ def handle_dms_key(key: str):
         if k == "#":
             if len(state["dms_pin_buf"]) < PIN_LEN:
                 return
-            pin = state["dms_pin_buf"][:PIN_LEN]
+            pin = state["dms_pin_buf"]
             state["dms_pin_buf"] = ""
         else:
             state["dms_pin_buf"] = (state["dms_pin_buf"] + k)[:8]
 
             if len(state["dms_pin_buf"]) < PIN_LEN:
                 return
-            pin = state["dms_pin_buf"][:PIN_LEN]
+            pin = state["dms_pin_buf"]
             state["dms_pin_buf"] = ""
 
         if not state.get("pin_set", False):
@@ -586,6 +586,7 @@ def handle_sensor_message(data):
             state["timer_seconds"] = value
      # --- DHT ---
     if str(name).startswith("DHT"):
+        _update_dht_state(str(name), measurement, value)
         dht_payload = build_dht_update_payload(data)
         if dht_payload is not None:
             mqtt_send(TOPIC_DHT_UPDATE, dht_payload)
@@ -761,6 +762,23 @@ def handle_gsg_message(measurement: str, value):
     if moved:
         alarm_pulse("gsg_move", ALARM_HOLD_S, reason=f"GSG moved (acc={acc_norm:.2f}, gyro={gyr_norm:.1f})")
 
+def _update_dht_state(name: str, measurement: str, value):
+    # name: DHT1/DHT2/DHT3
+    m = str(measurement or "").lower()
+
+    try:
+        v = None if value is None else float(value)
+    except Exception:
+        v = None
+
+    with lock:
+        if name not in state["sensors"] or not isinstance(state["sensors"][name], dict):
+            state["sensors"][name] = {"temp": None, "hum": None}
+
+        if "temperature" in m or "temp" in m:
+            state["sensors"][name]["temp"] = v
+        elif "humidity" in m or "hum" in m:
+            state["sensors"][name]["hum"] = v
 # -----------------------------
 # MQTT setup
 # -----------------------------
