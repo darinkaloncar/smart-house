@@ -19,10 +19,10 @@ CORS(
 # -----------------------------
 # InfluxDB Configuration
 # -----------------------------
-token = "WqfH2n5wWYy1ReLHf-1KVU4pTt_WpBGhE6SMt1rsFVCwC63SOQbzNS-NepTQFhSUmJTiILUQtbX0aT4CcD5q6g=="
+token = "6cJHWtS_annGnLr6VmWStTYFIQfa6YL6_qnAuf8GMy9xZero6ov-qtVz-QAIQPHJDl7myjQxRRGweQsHT6bnhw=="
 org = "MyOrg"
 url = "http://localhost:8086"
-bucket = "iot"
+bucket = "iot-db"
 
 influxdb_client = InfluxDBClient(url=url, token=token, org=org)
 
@@ -35,7 +35,7 @@ TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
 TOPIC_DMS_INJECT = "home/actuators/dms/inject_pin"
 TOPIC_BTN_PRESSED = "home/actuators/btn/pressed"
 DS_UNLOCKED_SECONDS = 5.0
-ALARM_HOLD_S = 10.0         
+ALARM_HOLD_S = 120.0         
 GSG_COOLDOWN_S = 2.0        
 GSG_ACCEL_DELTA_THR = 0.25   
 GSG_GYRO_NORM_THR = 80.0  
@@ -746,10 +746,16 @@ def handle_gsg_message(measurement: str, value):
 
         if ax is None or ay is None or az is None or gx is None or gy is None or gz is None:
             return
-        if (abs(ax) < 1e-6 and abs(ay) < 1e-6 and abs(az) < 1e-6 and
-            abs(gx) < 1e-6 and abs(gy) < 1e-6 and abs(gz) < 1e-6):
+        if (
+            abs(ax) < 1e-6 and abs(ay) < 1e-6 and abs(az) < 1e-6 and
+            abs(gx) < 1e-6 and abs(gy) < 1e-6 and abs(gz) < 1e-6
+        ):
+            if state["alarm_sources"]["gsg_move"]["active"]:
+                state["alarm_sources"]["gsg_move"]["active"] = False
+                state["alarm_sources"]["gsg_move"]["reason"] = ""
+                g["last_trigger"] = 0.0
+                _recompute_alarm(now)
             return
-
         if (now - float(g.get("last_trigger", 0.0))) < GSG_COOLDOWN_S:
             return
 
