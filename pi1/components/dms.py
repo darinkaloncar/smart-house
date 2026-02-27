@@ -2,7 +2,7 @@ import json
 import time
 import threading
 
-from globals import batch_slow, publish_limit_slow, counter_lock, publish_event_slow
+from globals import batch_fast, counter_lock, publish_event_fast
 
 
 class DmsKeypad:
@@ -61,7 +61,6 @@ class DmsKeypad:
         raise ValueError(f"Key '{key_label}' not found in DMS layout")
 
     def _publish_key_pressed(self, idx: int):
-        global publish_limit_slow
 
         payload = {
             "measurement": "DMS",
@@ -74,9 +73,8 @@ class DmsKeypad:
 
         topic = f"{self.settings['runs_on']}/{self.settings['name']}"
         with counter_lock:
-            batch_slow.append((topic, json.dumps(payload), 0, False))
-            if len(batch_slow) >= publish_limit_slow:
-                publish_event_slow.set()
+            batch_fast.append((topic, json.dumps(payload), 0, False))
+            publish_event_fast.set()
 
     def _on_key_change(self, idx: int, state: int):
         idx = int(idx)
@@ -122,11 +120,12 @@ class DmsKeypad:
         # release se ignoriše (namerno)
         self._on_key_change(idx, 0)
 
+    # tap by index
     def tap(self, idx: int, duration: float = 0.08):
         def _pulse():
             self.press(idx)
             time.sleep(max(0.01, float(duration)))
-            self.release(idx)  # ignorisaće se
+            self.release(idx)  
 
         threading.Thread(target=_pulse, daemon=True).start()
 
@@ -136,6 +135,7 @@ class DmsKeypad:
     def release_key(self, key_label: str):
         self.release(self._find_index_by_label(key_label))
 
+    # tap by value/key
     def tap_key(self, key_label: str, duration: float = 0.08):
         self.tap(self._find_index_by_label(key_label), duration)
 

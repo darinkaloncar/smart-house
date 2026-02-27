@@ -13,6 +13,7 @@ export const armSystem = () => api.post("/system/arm", {});
 export const disarmSystem = () => api.post("/system/disarm", {});
 
 export const sendDmsKey = (key) => api.post("/dms/key", { key });
+export const sendDmsPin = (pin) => api.post("/dms/pin", { pin });
 
 export const setTimer = (seconds) => api.post("/timer/set", { seconds });
 export const timerAdd = (seconds) => api.post("/timer/add", { seconds });

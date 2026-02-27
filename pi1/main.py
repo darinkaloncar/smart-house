@@ -45,6 +45,67 @@ def start_local_dpir1_to_dl_thread(dpir1, door_light, stop_event, on_seconds=10.
     th.start()
     return th
 
+def start_dms_pin_mqtt_listener(dms: DmsKeypad, stop_event, broker=BROKER_HOST, port=BROKER_PORT):
+    TOPIC_DMS_INJECT_PIN = "home/actuators/dms/inject_pin"
+
+    def on_connect(client, userdata, flags, rc):
+        print("DMS PIN MQTT CONNECTED:", rc)
+        client.subscribe(TOPIC_DMS_INJECT_PIN)
+
+    VALID_KEYS = set(["0","1","2","3","4","5","6","7","8","9","*","#","A","B","C","D"])
+    MAX_LEN = 8 
+
+    def on_message(client, userdata, msg):
+        try:
+            data = json.loads(msg.payload.decode())
+        except Exception as e:
+            print("DMS PIN MQTT JSON ERROR:", e, msg.payload)
+            return
+
+        raw = str(data.get("value", "")).strip()
+        if not raw:
+            print("DMS PIN MQTT: missing value")
+            return
+
+        pin = raw.upper()
+
+        if len(pin) > MAX_LEN:
+            print(f"DMS PIN MQTT: too long '{pin}' (max {MAX_LEN})")
+            return
+
+        bad = [ch for ch in pin if ch not in VALID_KEYS]
+        if bad:
+            print(f"DMS PIN MQTT: invalid chars {bad} in '{pin}' (allowed: 0-9 A-D * #)")
+            return
+
+        print(f"[DMS] injecting sequence from MQTT: '{pin}'")
+
+        dms.enter_pin(pin, inter_key_delay=0.12, press_duration=0.06)
+
+    def loop():
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+        client.connect(broker, port, 60)
+        client.loop_start()
+
+        try:
+            while not stop_event.is_set():
+                time.sleep(0.1)
+        finally:
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    return th
+
 def start_buzzer_mqtt_listener(door_buzzer, stop_event, broker=BROKER_HOST, port=BROKER_PORT):
     TOPIC_DB_CMD = "home/actuators/db/cmd"
 
@@ -157,6 +218,8 @@ if __name__ == "__main__":
     dms_thread = dms.start(stop_event)
     if dms_thread:
         threads.append(dms_thread)
+    dms_pin_mqtt_thread = start_dms_pin_mqtt_listener(dms, stop_event)
+    threads.append(dms_pin_mqtt_thread)
 
     dpir1 = DoorPir(settings["DPIR1"], verbose=True)
     dpir_thread = dpir1.start(stop_event)

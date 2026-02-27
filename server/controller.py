@@ -32,6 +32,7 @@ TOPIC_RGB_CMD  = "home/actuators/rgb/cmd"
 TOPIC_DHT_UPDATE  = "home/actuators/dht/update"
 TOPIC_TIMER_SET_CMD = "home/actuators/timer/set"
 TOPIC_TIMER_ADD_CMD = "home/actuators/timer/add"
+TOPIC_DMS_INJECT = "home/actuators/dms/inject_pin"
 TOPIC_BTN_PRESSED = "home/actuators/btn/pressed"
 DS_UNLOCKED_SECONDS = 5.0
 ALARM_HOLD_S = 10.0         
@@ -979,6 +980,28 @@ def timer_add_route():
         return jsonify({"status": "error", "message": "Invalid seconds"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/dms/pin", methods=["POST"])
+def dms_pin_route():
+    data = request.get_json(force=True) or {}
+    pin = str(data.get("pin", "")).strip().upper()
+
+    if not pin:
+        return jsonify({"status": "error", "message": "missing pin"}), 400
+    if len(pin) > 8:
+        return jsonify({"status": "error", "message": "pin too long (max 8)"}), 400
+    if any(ch not in VALID_KEYS for ch in pin):
+        return jsonify({"status": "error", "message": "invalid chars (allowed: 0-9 A-D * #)"}), 400
+
+    mqtt_send(TOPIC_DMS_INJECT, {
+        "measurement": "DMS",
+        "name": "DMS",
+        "value": pin,
+        "event": "pin",
+        "source": "web",
+    })
+
+    return jsonify({"status": "ok"})
 
 @app.route("/btn/pressed", methods=["POST"])
 def btn_pressed_route():

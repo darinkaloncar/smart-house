@@ -9,6 +9,7 @@ import {
   alarmOn,
   armSystem,
   disarmSystem,
+  sendDmsPin,
   getStatus,
   sendDmsKey,
   setRgbColor,
@@ -59,19 +60,21 @@ function App() {
   ];
 
   const handleKeyClick = (key) => {
-    if (key === "*") {
-      setPinInput("");
+    const k = String(key).toUpperCase();
+
+    if (k === "*") {
+      setPinInput("");      // clear
       return;
     }
 
-    if (key === "#") {
-      sendPin(); // enter / submit
+    if (k === "#") {
+      sendPin();            // submit
       return;
     }
 
-    if (!/^[0-9A-D]$/i.test(key)) return;
+    if (!/^[0-9A-D]$/.test(k)) return;
 
-    setPinInput((prev) => (prev + key.toUpperCase()).slice(0, 8));
+    setPinInput((prev) => (prev + k).slice(0, 8));
   };
 
   const loadStatus = async () => {
@@ -82,6 +85,25 @@ function App() {
     } catch (err) {
       console.error(err);
       setErrorMsg("Ne mogu da učitam status backend-a.");
+    }
+  };
+  const sendPin = async () => {
+    const seq = (pinInput || "").trim().toUpperCase();
+    console.log("[UI] sendPin seq=", seq);
+
+    if (!seq) return;
+
+    if (!/^[0-9A-D*#]{1,8}$/.test(seq)) {
+      console.warn("[UI] allowed: 0-9, A-D, *, # (1..8 chars)");
+      return;
+    }
+
+    try {
+      await sendDmsPin(seq);
+      setPinInput("");
+      await loadStatus();
+    } catch (e) {
+      console.error("[UI] sendPin error", e);
     }
   };
 
@@ -143,24 +165,6 @@ function App() {
     }
   };
 
-  const sendPin = async () => {
-    const pin = (pinInput || "").trim();
-    console.log("[UI] sendPin pin=", pin);
-
-    if (!pin) return;
-
-    try {
-      for (const ch of pin) {
-        console.log("[UI] sending dms key:", ch);
-        await sendDmsKey(ch);
-      }
-      setPinInput("");
-      await loadStatus();
-    } catch (e) {
-      console.error("[UI] sendPin error", e);
-    }
-  };
-
   const handleBrgbChange = async (e) => {
     const color = e.target.value;
 
@@ -219,9 +223,9 @@ function App() {
             <strong>
               {status?.arming_pending
                 ? Math.max(
-                    0,
-                    Math.ceil(status.arming_until - Date.now() / 1000),
-                  ) + "s"
+                  0,
+                  Math.ceil(status.arming_until - Date.now() / 1000),
+                ) + "s"
                 : "-"}
             </strong>
           </div>
@@ -231,9 +235,9 @@ function App() {
             <strong>
               {status?.entry_pending
                 ? Math.max(
-                    0,
-                    Math.ceil(status.entry_until - Date.now() / 1000),
-                  ) + "s"
+                  0,
+                  Math.ceil(status.entry_until - Date.now() / 1000),
+                ) + "s"
                 : "-"}
             </strong>
           </div>
